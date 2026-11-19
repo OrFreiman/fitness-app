@@ -689,6 +689,7 @@ function render(){
   let sel = null; try { sel = fid && a.selectionStart != null ? [a.selectionStart, a.selectionEnd] : null; } catch (e) {}
   view.innerHTML = views[S.tab]();
   if (S.tab === "history") drawChart();
+  if (S.tab === "admin" && ADM.sel && ADM.data) drawChart(adminSeries());
   if (fid) { const el = document.getElementById(fid); if (el) { el.focus({preventScroll:true}); try { if (sel) el.setSelectionRange(sel[0], sel[1]); } catch (e) {} } }
 }
 
@@ -947,11 +948,11 @@ views.history = () => {
   </section>`;
 };
 
-function drawChart(){
+function drawChart(seriesIn){
   const wrap = $("#chart"); if (!wrap) return;
   const tk = todayKey(); const N = S.hist; const W = Math.max(280, wrap.clientWidth), H = 210;
   const padL = 48, padR = 8, padT = 12, padB = 24;
-  const byDate = Object.fromEntries(lockedSeries().map(x => [x.date, x]));
+  const byDate = Object.fromEntries((seriesIn || lockedSeries()).map(x => [x.date, x]));
   const pts = []; for (let i = N - 1; i >= 0; i--) { const k = shiftKey(tk, -i); pts.push({k, v: byDate[k] ? byDate[k].bal : null, x: byDate[k]}); }
   pts.forEach((p, i) => { const win = pts.slice(Math.max(0, i - 6), i + 1).filter(q => q.v != null); p.ma = (p.v != null || win.length >= 2) && win.length ? win.reduce((a,q) => a + q.v, 0) / win.length : null; });
   const vals = pts.flatMap(p => [p.v, p.ma]).filter(v => v != null);
@@ -1836,6 +1837,14 @@ async function adminInvite(){
   }
   ADM.inviting = false; render();
 }
+function adminSeries(){
+  if (!ADM.data) return [];
+  const st = {...DEFAULTS, ...(ADM.data.settings || {})};
+  return Object.values(ADM.data).filter(d => d && d.date && d.items && d.locked).map(d => {
+    const t = dayTotals(d); const m = d.snap ? d.snap.maintenance : st.maintenance;
+    return {date: d.date, kcal: t.kcal, p: t.p, maint: m, bal: t.kcal - m, day: d};
+  }).sort((a, b) => a.date.localeCompare(b.date));
+}
 async function adminSetTest(id, v){
   const { error } = await SB.rpc("admin_set_test", {p_user: id, p_test: v});
   if (error) { toast("לא נשמר."); return; }
@@ -1851,14 +1860,34 @@ views.admin = () => {
     const st = {...DEFAULTS, ...(ADM.data.settings || {})};
     const days = Object.values(ADM.data).filter(d => d && d.date && d.items).sort((a, b) => b.date.localeCompare(a.date));
     const rows = days.slice(0, 30).map(d => { const t = dayTotals(d); const m = d.locked && d.snap ? d.snap.maintenance : st.maintenance; const g = d.locked && d.snap ? d.snap.calGoal : st.calGoal; return {d, t, m, g, bal: t.kcal - m}; });
+    const series = adminSeries(); const tk = todayKey(); const start = shiftKey(tk, -(S.hist - 1));
+    const inRange = series.filter(x => x.date >= start && x.date <= tk);
+    const fit = fitLine(inRange.map(x => [dayIndex(start, x.date), x.bal])); const perWeek = fit ? fit.b * 7 : 0;
+    const trendTxt = !fit ? "" : Math.abs(perWeek) < 25 ? "קו המגמה: המאזן היומי יציב בטווח הזה."
+      : `קו המגמה: המאזן היומי ${perWeek < 0 ? "יורד" : "עולה"} בכ־${k0(Math.abs(perWeek))} ${KCAL} בכל שבוע (${perWeek < 0 ? "נוטה לגירעון גדול יותר" : "נוטה לכיוון עודף"}).`;
     const locked = rows.filter(r => r.d.locked); const last7 = locked.slice(0, 7);
     const avg = last7.length ? last7.reduce((a, r) => a + r.bal, 0) / last7.length : 0;
     const total = locked.reduce((a, r) => a + r.bal, 0);
     return head + `
+      <section class="card stack" aria-label="ההגדרות של המתאמן">
+        <h3>ההגדרות שלו</h3>
+        <div class="grid2">
+          <div><div class="muted small">קלוריות תחזוקה</div><b class="num">${k0(st.maintenance)} ${KCAL}</b></div>
+          <div><div class="muted small">יעד קלוריות</div><b class="num">${k0(st.calGoal)} ${KCAL}</b></div>
+          <div><div class="muted small">יעד חלבון</div><b class="num">${k0(st.proteinGoal)} גרם</b></div>
+          <div><div class="muted small">תוספת ״לא בטוח״</div><b class="num">${k0(st.unsurePct)}%</b></div>
+        </div>
+        ${ADM.data.settings ? "" : `<div class="muted small">עוד לא שינה את ההגדרות, אלה ברירות המחדל.</div>`}
+      </section>
+      <section class="card stack" aria-label="גרף מאזן יומי">
+        <div class="row between"><h3>מאזן יומי</h3><div class="seg" role="group" aria-label="טווח">${[14,30,90].map(n => `<button data-act="hist" data-n="${n}" aria-pressed="${S.hist === n}">${n} יום</button>`).join("")}</div></div>
+        <div class="chart-wrap" id="chart"><div class="tooltip" id="tip"></div></div>
+        <div class="legend"><span><i style="background:var(--deficit)"></i>גירעון</span><span><i style="background:var(--surplus)"></i>עודף</span><span><i class="line"></i>ממוצע 7 ימים</span>${fit ? `<span><i class="line" style="background:none;border-top:2px dashed var(--accent);height:0"></i>קו מגמה</span>` : ""}</div>
+        ${trendTxt ? `<div class="small">${trendTxt}</div>` : `<div class="muted small">נספרים רק ימים נעולים. קו המגמה יופיע כשיהיו לפחות שני ימים נעולים בטווח.</div>`}
+      </section>
       <section class="card stack"><div class="grid2">
         <div><div class="muted small">ממוצע מאזן 7 ימים נעולים</div><b class="num">${sgnK(avg)} ${KCAL}</b></div>
         <div><div class="muted small">שינוי משקל תאורטי (30 יום)</div><b class="num">${sgnG(total / KCAL_PER_KG)} ק״ג</b></div>
-        <div><div class="muted small">יעד נוכחי</div><b class="num">${k0(st.calGoal)} ${KCAL} · ${k0(st.proteinGoal)} ג׳ חלבון</b></div>
         <div><div class="muted small">ימים מתועדים</div><b class="num">${days.length}</b></div>
       </div></section>
       <section class="card"><table class="adm-table"><thead><tr><th>תאריך</th><th>${KCAL}</th><th>יעד</th><th>מאזן</th><th>חלבון</th></tr></thead><tbody>
