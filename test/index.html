@@ -1632,6 +1632,10 @@ async function onLabelPhoto(file){
 
 /* ============ Supabase: login, Claude estimates, barcode, admin ============ */
 const SB_URL = "https://gkttfnwsdhfuknfmwolp.supabase.co", SB_KEY = "sb_publishable_tHQmTNqsH-uds7F8hXeFdA_F6hdWWfG";
+const START_HASH = location.hash || "";
+const HASHP = new URLSearchParams(START_HASH.replace(/^#/, ""));
+const INVITE = {pending: HASHP.get("type") === "invite"};
+const HASH_ERR = HASHP.get("error_description") || HASHP.get("error") || "";
 const SB = window.supabase.createClient(SB_URL, SB_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
 
 const Auth = {
@@ -1640,12 +1644,15 @@ const Auth = {
     SB.auth.onAuthStateChange((ev, session) => {
       if (ev === "PASSWORD_RECOVERY") { AUTHV.mode = "newpass"; AUTHV.err = ""; this.user = null; showAuth(); return; }
       const u = session ? session.user : null;
+      if (u && INVITE.pending) { if (AUTHV.mode !== "welcome") { AUTHV.mode = "welcome"; AUTHV.err = ""; showAuth(); } return; }
       if (u && (!this.user || this.user.id !== u.id)) { this.user = u; setTimeout(() => this.signedIn(), 0); }
       if (!u && this.user) { this.user = null; this.isAdmin = false; Store.docs = {}; Store.loaded = false; showAuth(); }
     });
+    if (HASH_ERR) { AUTHV.err = "הקישור לא תקף או שפג תוקפו. בקש מהמאמן הזמנה חדשה."; history.replaceState(null, "", location.pathname); }
     const { data } = await SB.auth.getSession();
+    if (data.session && INVITE.pending) { AUTHV.mode = "welcome"; showAuth(); return; }
     if (data.session && AUTHV.mode !== "newpass") { this.user = data.session.user; await this.signedIn(); }
-    else if (AUTHV.mode !== "newpass") showAuth();
+    else if (AUTHV.mode !== "newpass" && AUTHV.mode !== "welcome") showAuth();
   },
   async signedIn(){
     if (this.started === this.user.id) return; this.started = this.user.id;
@@ -1664,17 +1671,18 @@ const AUTHV = {mode:"login", err:"", busy:false, info:""};
 function showAuth(){ document.body.classList.add("signed-out"); S.tab = "today"; closeSheet(); render(); renderAuth(); }
 function renderAuth(){
   const m = AUTHV.mode;
-  const title = {login:"כניסה", signup:"הרשמה", forgot:"איפוס סיסמה", newpass:"סיסמה חדשה"}[m];
+  const title = {login:"כניסה", forgot:"איפוס סיסמה", newpass:"סיסמה חדשה", welcome:"ברוך הבא! בחר סיסמה"}[m];
+  const setsPass = m === "newpass" || m === "welcome";
   $("#view").innerHTML = `<section class="card stack auth" aria-label="${title}">
     <h2>${title}</h2>
-    ${m === "login" || m === "signup" ? `<div class="seg" role="group"><button data-act="auth-mode" data-m="login" aria-pressed="${m === "login"}">כניסה</button><button data-act="auth-mode" data-m="signup" aria-pressed="${m === "signup"}">הרשמה</button></div>` : ""}
-    ${m !== "newpass" ? `<label class="field">אימייל<input id="au-email" type="email" dir="ltr" autocomplete="email" inputmode="email" value="${esc(AUTHV.email || "")}"></label>` : ""}
-    ${m !== "forgot" ? `<label class="field">${m === "newpass" ? "סיסמה חדשה" : "סיסמה"}<input id="au-pass" type="password" dir="ltr" autocomplete="${m === "login" ? "current-password" : "new-password"}"></label>` : ""}
-    ${m === "signup" ? `<div class="muted small">לפחות 8 תווים.</div>` : ""}
+    ${m === "welcome" ? `<div class="muted small">ההזמנה שלך אושרה. בחר סיסמה כדי להיכנס בפעם הבאה.</div>` : ""}
+    ${!setsPass ? `<label class="field">אימייל<input id="au-email" type="email" dir="ltr" autocomplete="email" inputmode="email" value="${esc(AUTHV.email || "")}"></label>` : ""}
+    ${m !== "forgot" ? `<label class="field">${setsPass ? "סיסמה חדשה" : "סיסמה"}<input id="au-pass" type="password" dir="ltr" autocomplete="${m === "login" ? "current-password" : "new-password"}"></label>` : ""}
+    ${setsPass ? `<div class="muted small">לפחות 8 תווים.</div>` : ""}
     <div class="err" role="alert">${esc(AUTHV.err)}</div>
     ${AUTHV.info ? `<div class="note">${esc(AUTHV.info)}</div>` : ""}
-    <button class="btn primary block" data-act="auth-go" ${AUTHV.busy ? "disabled" : ""}>${{login:"היכנס", signup:"צור חשבון", forgot:"שלח קישור לאיפוס", newpass:"שמור סיסמה"}[m]}</button>
-    ${m === "login" ? `<button class="btn ghost" data-act="auth-mode" data-m="forgot">שכחתי סיסמה</button>` : ""}
+    <button class="btn primary block" data-act="auth-go" ${AUTHV.busy ? "disabled" : ""}>${{login:"היכנס", forgot:"שלח קישור לאיפוס", newpass:"שמור סיסמה", welcome:"שמור והיכנס"}[m]}</button>
+    ${m === "login" ? `<button class="btn ghost" data-act="auth-mode" data-m="forgot">שכחתי סיסמה</button><div class="muted small">הכניסה לאפליקציה בהזמנה בלבד. אם קיבלת הזמנה, פתח את הקישור מהאימייל.</div>` : ""}
     ${m === "forgot" ? `<button class="btn ghost" data-act="auth-mode" data-m="login">חזרה לכניסה</button>` : ""}
   </section>`;
 }
@@ -1693,9 +1701,10 @@ async function authSubmit(){
   const m = AUTHV.mode, email = ($("#au-email") || {}).value, pass = ($("#au-pass") || {}).value;
   if (email != null) AUTHV.email = email;
   AUTHV.err = ""; AUTHV.info = "";
-  if (m !== "newpass" && !(email || "").trim()) { AUTHV.err = "הזן אימייל."; renderAuth(); return; }
+  const setsPass = m === "newpass" || m === "welcome";
+  if (!setsPass && !(email || "").trim()) { AUTHV.err = "הזן אימייל."; renderAuth(); return; }
   if (m !== "forgot" && !pass) { AUTHV.err = "הזן סיסמה."; renderAuth(); return; }
-  if ((m === "signup" || m === "newpass") && pass.length < 8) { AUTHV.err = "הסיסמה קצרה מדי. בחר לפחות 8 תווים."; renderAuth(); return; }
+  if (setsPass && pass.length < 8) { AUTHV.err = "הסיסמה קצרה מדי. בחר לפחות 8 תווים."; renderAuth(); return; }
   AUTHV.busy = true; renderAuth();
   try {
     if (m === "login") { const { error } = await SB.auth.signInWithPassword({email: email.trim(), password: pass}); if (error) throw error; }
@@ -1707,9 +1716,10 @@ async function authSubmit(){
       const { error } = await SB.auth.resetPasswordForEmail(email.trim(), {redirectTo: location.origin + location.pathname});
       if (error) throw error;
       AUTHV.mode = "login"; AUTHV.info = "אם יש חשבון עם האימייל הזה, נשלח אליו קישור לאיפוס הסיסמה.";
-    } else if (m === "newpass") {
+    } else if (setsPass) {
       const { error } = await SB.auth.updateUser({password: pass}); if (error) throw error;
-      AUTHV.mode = "login"; toast("הסיסמה עודכנה."); const { data } = await SB.auth.getSession();
+      AUTHV.mode = "login"; INVITE.pending = false; history.replaceState(null, "", location.pathname);
+      toast(m === "welcome" ? "ברוך הבא!" : "הסיסמה עודכנה."); const { data } = await SB.auth.getSession();
       if (data.session) { Auth.user = data.session.user; AUTHV.busy = false; await Auth.signedIn(); return; }
     }
   } catch (e) { AUTHV.err = authMsg(e); }
@@ -1812,6 +1822,20 @@ async function adminOpen(id){
   }
   if (ADM.sel === id) { ADM.data = docs; render(); }
 }
+async function adminInvite(){
+  const el = $("#inv-email"); const email = (el ? el.value : "").trim();
+  ADM.invEmail = email;
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { toast("הזן אימייל תקין."); return; }
+  ADM.inviting = true; render();
+  try {
+    await callFn({action:"invite", email, redirectTo: location.origin + location.pathname});
+    toast("ההזמנה נשלחה ל־" + email); ADM.invEmail = ""; ADM.users = null;
+  } catch (e) {
+    const c = e && e.code;
+    toast(c === "already_exists" ? "כבר יש חשבון עם האימייל הזה." : c === "email_rate" ? "נשלחו יותר מדי אימיילים בשעה האחרונה. נסה שוב מאוחר יותר." : c === "bad_email" ? "האימייל לא תקין." : "ההזמנה לא נשלחה. נסה שוב.");
+  }
+  ADM.inviting = false; render();
+}
 async function adminSetTest(id, v){
   const { error } = await SB.rpc("admin_set_test", {p_user: id, p_test: v});
   if (error) { toast("לא נשמר."); return; }
@@ -1845,6 +1869,11 @@ views.admin = () => {
   const list = ADM.users.filter(u => u.id !== Auth.user.id && (ADM.showTest || !u.is_test));
   const testCount = ADM.users.filter(u => u.is_test).length;
   return `<h2>מתאמנים</h2>
+    <section class="card stack" aria-label="הזמנת מתאמן">
+      <h3>הזמנת מתאמן</h3>
+      <div class="row"><input id="inv-email" type="email" dir="ltr" placeholder="email@example.com" aria-label="אימייל של המתאמן" value="${esc(ADM.invEmail || "")}"><button class="btn primary" style="white-space:nowrap" data-act="adm-invite" ${ADM.inviting ? "disabled" : ""}>שלח הזמנה</button></div>
+      <div class="muted small">המתאמן יקבל אימייל עם קישור לאפליקציה, ויבחר סיסמה בכניסה הראשונה. רק מי שהוזמן יכול להיכנס.</div>
+    </section>
     <section class="card">${list.map(u => `<button class="adm-row" data-act="adm-user" data-id="${esc(u.id)}"><span dir="auto">${esc(u.display_name || u.email)}${u.is_test ? '<span class="tag">בדיקה</span>' : ""}${u.role === "admin" ? '<span class="tag">מנהל</span>' : ""}</span><span class="muted small">הצטרף ${esc(new Date(u.created_at).toLocaleDateString("he-IL"))}</span></button>`).join("") || `<div class="muted">עוד אין מתאמנים. שלח להם את הקישור לאפליקציה כדי שיירשמו.</div>`}</section>
     ${testCount ? `<button class="btn ghost" data-act="adm-showtest">${ADM.showTest ? "הסתר" : "הצג"} משתמשי בדיקה (${testCount})</button>` : ""}`;
 };
@@ -1900,6 +1929,7 @@ const ACT = {
   "adm-user": el => adminOpen(el.dataset.id),
   "adm-back": () => { ADM.sel = null; render(); },
   "adm-test": el => adminSetTest(el.dataset.id, el.dataset.v === "1"),
+  "adm-invite": () => adminInvite(),
   "adm-showtest": () => { ADM.showTest = !ADM.showTest; render(); },
   "label-manual": () => openFoodEditor(null, {thenLog: LBL.log}),
   "end-save": () => saveEnd(),

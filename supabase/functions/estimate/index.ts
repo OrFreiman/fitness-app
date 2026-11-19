@@ -4,6 +4,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 // One server function for the app:
 //   {action:"estimate", prompt, tier?, images?: [base64 jpeg]}  -> Claude reply parsed as JSON (counts toward the daily limit)
 //   {action:"barcode", code}                                    -> product from the shared table or Open Food Facts (free)
+//   {action:"invite", email, redirectTo}                        -> admin only: email an invitation to join
 // verify_jwt is off because the function checks the login itself (works with Supabase's new signing keys).
 
 const MODEL = "claude-haiku-5-5";
@@ -93,6 +94,23 @@ Deno.serve(async (req) => {
   try { body = await req.json(); } catch { return json({ error: "bad_request" }, 400); }
 
   if (body.action === "barcode") return json(await barcode(admin, body.code));
+
+  if (body.action === "invite") {
+    const { data: me } = await admin.from("profiles").select("role").eq("id", u.user.id).maybeSingle();
+    if (!me || me.role !== "admin") return json({ error: "not_allowed" }, 403);
+    const email = String(body.email || "").trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "bad_email" });
+    const redirectTo = /^https:\/\/orfreiman\.github\.io\/fitness-app\//.test(String(body.redirectTo || "")) ? body.redirectTo : "https://orfreiman.github.io/fitness-app/";
+    const { error } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo });
+    if (error) {
+      console.error("invite", error.message);
+      const m = error.message.toLowerCase();
+      if (m.includes("already") || m.includes("registered")) return json({ error: "already_exists" });
+      if (m.includes("rate")) return json({ error: "email_rate" });
+      return json({ error: "upstream" });
+    }
+    return json({ data: { ok: true } });
+  }
 
   if (body.action === "estimate") {
     const { data: lim, error } = await admin.rpc("bump_usage", { p_user: u.user.id });
