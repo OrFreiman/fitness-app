@@ -4,7 +4,9 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 // One server function for the app:
 //   {action:"estimate", prompt, tier?, images?: [base64 jpeg]}  -> Claude reply parsed as JSON (counts toward the daily limit)
 //   {action:"barcode", code}                                    -> product from the shared table or Open Food Facts (free)
-//   {action:"invite", email, redirectTo}                        -> admin only: email an invitation to join
+//   {action:"invite", email, name?, redirectTo}                 -> admin only: email an invitation to join
+//   {action:"set_disabled", user, disabled}                     -> admin only: block / unblock a trainee's login (data kept)
+//   {action:"delete_user", user}                                -> admin only: permanently delete a DISABLED trainee and their data
 // verify_jwt is off because the function checks the login itself (works with Supabase's new signing keys).
 
 const MODEL = "claude-haiku-5-5";
@@ -93,15 +95,39 @@ Deno.serve(async (req) => {
   let body: any = {};
   try { body = await req.json(); } catch { return json({ error: "bad_request" }, 400); }
 
+  const { data: me } = await admin.from("profiles").select("role,disabled").eq("id", u.user.id).maybeSingle();
+  if (me && me.disabled) return json({ error: "account_disabled" }, 403);
+
   if (body.action === "barcode") return json(await barcode(admin, body.code));
 
+  const adminOnly = ["invite", "set_disabled", "delete_user"].includes(body.action);
+  if (adminOnly && (!me || me.role !== "admin")) return json({ error: "not_allowed" }, 403);
+
+  if (body.action === "set_disabled" || body.action === "delete_user") {
+    const target = String(body.user || "");
+    if (!target || target === u.user.id) return json({ error: "bad_request" });
+    const { data: t } = await admin.from("profiles").select("role,disabled").eq("id", target).maybeSingle();
+    if (!t) return json({ error: "not_found" });
+    if (t.role === "admin") return json({ error: "not_allowed" });
+    if (body.action === "set_disabled") {
+      const dis = !!body.disabled;
+      const { error: e1 } = await admin.auth.admin.updateUserById(target, { ban_duration: dis ? "876000h" : "none" });
+      if (e1) { console.error("ban", e1.message); return json({ error: "upstream" }); }
+      await admin.from("profiles").update({ disabled: dis, disabled_at: dis ? new Date().toISOString() : null }).eq("id", target);
+      return json({ data: { ok: true } });
+    }
+    if (!t.disabled) return json({ error: "not_disabled" });
+    const { error: e2 } = await admin.auth.admin.deleteUser(target);
+    if (e2) { console.error("delete", e2.message); return json({ error: "upstream" }); }
+    return json({ data: { ok: true } });
+  }
+
   if (body.action === "invite") {
-    const { data: me } = await admin.from("profiles").select("role").eq("id", u.user.id).maybeSingle();
-    if (!me || me.role !== "admin") return json({ error: "not_allowed" }, 403);
     const email = String(body.email || "").trim().toLowerCase();
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "bad_email" });
     const redirectTo = /^https:\/\/orfreiman\.github\.io\/fitness-app\//.test(String(body.redirectTo || "")) ? body.redirectTo : "https://orfreiman.github.io/fitness-app/";
-    const { error } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo });
+    const name = String(body.name || "").trim().slice(0, 80);
+    const { error } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo, data: name ? { full_name: name } : undefined });
     if (error) {
       console.error("invite", error.message);
       const m = error.message.toLowerCase();

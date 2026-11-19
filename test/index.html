@@ -1024,6 +1024,7 @@ views.settings = () => {
   <section class="card stack" aria-label="החשבון שלי">
     <h3>החשבון שלי</h3>
     <div class="muted small">מחובר בתור <b dir="ltr">${esc(Auth.user ? Auth.user.email : "")}</b></div>
+    <label class="field">השם שלי<div class="row"><input id="my-name" type="text" dir="auto" maxlength="80" value="${esc((Auth.profile || {}).display_name || "")}"><button class="btn" data-act="my-name-save">שמור</button></div></label>
     <div class="row wrap"><button class="btn grow" data-act="export">ייצוא הנתונים שלי</button><button class="btn ghost danger" data-act="logout">התנתק</button></div>
   </section>
 
@@ -1178,6 +1179,7 @@ function aiError(e){
   if (c === "invalid_json" || c === "empty_completion") return "לא הצלחנו לקרוא את התשובה של Claude. נסה שוב, או תאר את המזון קצת אחרת.";
   if (c === "refused") return "Claude לא הצליח להעריך את זה. נסה לתאר אחרת.";
   if (c === "session_expired") return "פג תוקף החיבור. התנתק והתחבר שוב.";
+  if (c === "account_disabled") return "החשבון שלך הושבת. פנה למאמן שלך.";
   return "ההערכה לא הגיעה. בדוק את החיבור ונסה שוב.";
 }
 let AI = null;
@@ -1651,13 +1653,13 @@ const Auth = {
     SB.auth.onAuthStateChange((ev, session) => {
       if (ev === "PASSWORD_RECOVERY") { AUTHV.mode = "newpass"; AUTHV.err = ""; this.user = null; showAuth(); return; }
       const u = session ? session.user : null;
-      if (u && INVITE.pending) { if (AUTHV.mode !== "welcome") { AUTHV.mode = "welcome"; AUTHV.err = ""; showAuth(); } return; }
+      if (u && INVITE.pending) { if (AUTHV.mode !== "welcome") { AUTHV.mode = "welcome"; AUTHV.err = ""; AUTHV.name = AUTHV.name || ((u.user_metadata || {}).full_name || ""); showAuth(); } return; }
       if (u && (!this.user || this.user.id !== u.id)) { this.user = u; setTimeout(() => this.signedIn(), 0); }
       if (!u && this.user) { this.user = null; this.isAdmin = false; Store.docs = {}; Store.loaded = false; showAuth(); }
     });
     if (HASH_ERR) { AUTHV.err = "הקישור לא תקף או שפג תוקפו. בקש מהמאמן הזמנה חדשה."; history.replaceState(null, "", location.pathname); }
     const { data } = await SB.auth.getSession();
-    if (data.session && INVITE.pending) { AUTHV.mode = "welcome"; showAuth(); return; }
+    if (data.session && INVITE.pending) { AUTHV.mode = "welcome"; AUTHV.name = AUTHV.name || ((data.session.user.user_metadata || {}).full_name || ""); showAuth(); return; }
     if (data.session && AUTHV.mode !== "newpass") { this.user = data.session.user; await this.signedIn(); }
     else if (AUTHV.mode !== "newpass" && AUTHV.mode !== "welcome") showAuth();
   },
@@ -1665,7 +1667,10 @@ const Auth = {
     if (this.started === this.user.id) return; this.started = this.user.id;
     document.body.classList.remove("signed-out");
     S.sample = Claude; S.mcp = null;
-    try { const { data } = await SB.from("profiles").select("role").eq("id", this.user.id).maybeSingle(); this.isAdmin = !!(data && data.role === "admin"); } catch (e) {}
+    try { const { data } = await SB.from("profiles").select("role,display_name,disabled").eq("id", this.user.id).maybeSingle();
+      this.profile = data || {}; this.isAdmin = !!(data && data.role === "admin");
+      if (data && data.disabled) { this.started = false; await SB.auth.signOut(); AUTHV.mode = "login"; AUTHV.err = "החשבון שלך הושבת. פנה למאמן שלך."; showAuth(); return; }
+    } catch (e) {}
     $("#view").innerHTML = `<div class="empty">טוען את הנתונים שלך…</div>`;
     render(); await Store.init();
   },
@@ -1678,11 +1683,12 @@ const AUTHV = {mode:"login", err:"", busy:false, info:""};
 function showAuth(){ document.body.classList.add("signed-out"); S.tab = "today"; closeSheet(); render(); renderAuth(); }
 function renderAuth(){
   const m = AUTHV.mode;
-  const title = {login:"כניסה", forgot:"איפוס סיסמה", newpass:"סיסמה חדשה", welcome:"ברוך הבא! בחר סיסמה"}[m];
+  const title = {login:"כניסה", forgot:"איפוס סיסמה", newpass:"סיסמה חדשה", welcome:"ברוך הבא!"}[m];
   const setsPass = m === "newpass" || m === "welcome";
   $("#view").innerHTML = `<section class="card stack auth" aria-label="${title}">
     <h2>${title}</h2>
-    ${m === "welcome" ? `<div class="muted small">ההזמנה שלך אושרה. בחר סיסמה כדי להיכנס בפעם הבאה.</div>` : ""}
+    ${m === "welcome" ? `<div class="muted small">ההזמנה שלך אושרה. כתוב את השם שלך ובחר סיסמה כדי להיכנס בפעם הבאה.</div>
+    <label class="field">שם מלא<input id="au-name" type="text" dir="auto" autocomplete="name" maxlength="80" value="${esc(AUTHV.name || "")}"></label>` : ""}
     ${!setsPass ? `<label class="field">אימייל<input id="au-email" type="email" dir="ltr" autocomplete="email" inputmode="email" value="${esc(AUTHV.email || "")}"></label>` : ""}
     ${m !== "forgot" ? `<label class="field">${setsPass ? "סיסמה חדשה" : "סיסמה"}<input id="au-pass" type="password" dir="ltr" autocomplete="${m === "login" ? "current-password" : "new-password"}"></label>` : ""}
     ${setsPass ? `<div class="muted small">לפחות 8 תווים.</div>` : ""}
@@ -1696,6 +1702,7 @@ function renderAuth(){
 const authMsg = e => {
   const t = (e && (e.message || e.code) || "").toLowerCase();
   if (t.includes("invalid login")) return "האימייל או הסיסמה לא נכונים.";
+  if (t.includes("banned")) return "החשבון שלך הושבת. פנה למאמן שלך.";
   if (t.includes("already registered") || t.includes("already been registered")) return "כבר יש חשבון עם האימייל הזה. היכנס במקום להירשם.";
   if (t.includes("password") && (t.includes("least") || t.includes("short") || t.includes("weak"))) return "הסיסמה קצרה מדי. בחר לפחות 8 תווים.";
   if (t.includes("email") && (t.includes("invalid") || t.includes("format"))) return "האימייל לא תקין.";
@@ -1706,6 +1713,8 @@ const authMsg = e => {
 async function authSubmit(){
   if (AUTHV.busy) return;
   const m = AUTHV.mode, email = ($("#au-email") || {}).value, pass = ($("#au-pass") || {}).value;
+  const nameEl = $("#au-name"); if (nameEl) AUTHV.name = nameEl.value;
+  if (m === "welcome" && !(AUTHV.name || "").trim()) { AUTHV.err = "כתוב את השם המלא שלך."; renderAuth(); return; }
   if (email != null) AUTHV.email = email;
   AUTHV.err = ""; AUTHV.info = "";
   const setsPass = m === "newpass" || m === "welcome";
@@ -1724,7 +1733,9 @@ async function authSubmit(){
       if (error) throw error;
       AUTHV.mode = "login"; AUTHV.info = "אם יש חשבון עם האימייל הזה, נשלח אליו קישור לאיפוס הסיסמה.";
     } else if (setsPass) {
-      const { error } = await SB.auth.updateUser({password: pass}); if (error) throw error;
+      const fullName = (AUTHV.name || "").trim();
+      const { data: upd, error } = await SB.auth.updateUser(m === "welcome" ? {password: pass, data: {full_name: fullName}} : {password: pass}); if (error) throw error;
+      if (m === "welcome" && upd && upd.user) await SB.from("profiles").update({display_name: fullName}).eq("id", upd.user.id);
       AUTHV.mode = "login"; INVITE.pending = false; history.replaceState(null, "", location.pathname);
       toast(m === "welcome" ? "ברוך הבא!" : "הסיסמה עודכנה."); const { data } = await SB.auth.getSession();
       if (data.session) { Auth.user = data.session.user; AUTHV.busy = false; await Auth.signedIn(); return; }
@@ -1817,7 +1828,7 @@ const sgnG = v => `\u2066${v > 0.05 ? "+" : v < -0.05 ? "−" : ""}${g1(Math.abs
 const ADM = {users:null, sel:null, data:null, showTest:false, loading:false};
 async function adminLoad(){
   if (ADM.loading) return; ADM.loading = true;
-  const { data, error } = await SB.from("profiles").select("id,email,display_name,role,plan,is_test,created_at").order("created_at");
+  const { data, error } = await SB.from("profiles").select("id,email,display_name,role,plan,is_test,disabled,created_at").order("created_at");
   ADM.loading = false; ADM.users = error ? [] : data; render();
 }
 async function adminOpen(id){
@@ -1831,12 +1842,13 @@ async function adminOpen(id){
 }
 async function adminInvite(){
   const el = $("#inv-email"); const email = (el ? el.value : "").trim();
-  ADM.invEmail = email;
+  const nm = $("#inv-name"); const name = (nm ? nm.value : "").trim();
+  ADM.invEmail = email; ADM.invName = name;
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { toast("הזן אימייל תקין."); return; }
   ADM.inviting = true; render();
   try {
-    await callFn({action:"invite", email, redirectTo: location.origin + location.pathname});
-    toast("ההזמנה נשלחה ל־" + email); ADM.invEmail = ""; ADM.users = null;
+    await callFn({action:"invite", email, name, redirectTo: location.origin + location.pathname});
+    toast("ההזמנה נשלחה ל־" + (name || email)); ADM.invEmail = ""; ADM.invName = ""; ADM.users = null;
   } catch (e) {
     const c = e && e.code;
     toast(c === "already_exists" ? "כבר יש חשבון עם האימייל הזה." : c === "email_rate" ? "נשלחו יותר מדי אימיילים בשעה האחרונה. נסה שוב מאוחר יותר." : c === "bad_email" ? "האימייל לא תקין." : "ההזמנה לא נשלחה. נסה שוב.");
@@ -1851,6 +1863,37 @@ function adminSeries(){
     return {date: d.date, kcal: t.kcal, p: t.p, maint: m, bal: t.kcal - m, day: d};
   }).sort((a, b) => a.date.localeCompare(b.date));
 }
+async function saveMyName(){
+  const v = (($("#my-name") || {}).value || "").trim();
+  const { error } = await SB.from("profiles").update({display_name: v || null}).eq("id", Auth.user.id);
+  if (error) { toast("השם לא נשמר. נסה שוב."); return; }
+  Auth.profile = {...(Auth.profile || {}), display_name: v}; toast("השם נשמר.");
+}
+async function adminSaveName(id){
+  const v = (($("#adm-name") || {}).value || "").trim();
+  const { error } = await SB.rpc("admin_set_name", {p_user: id, p_name: v});
+  if (error) { toast("השם לא נשמר."); return; }
+  const u = (ADM.users || []).find(x => x.id === id); if (u) u.display_name = v || null; toast("השם נשמר."); render();
+}
+function adminConfirm(id, what){
+  const u = (ADM.users || []).find(x => x.id === id) || {}; const who = esc(u.display_name || u.email || "");
+  openSheet(what === "delete"
+    ? `<div class="sheet-head"><h2>מחיקה לצמיתות</h2>${CLOSE_BTN}</div><p>למחוק את <b dir="auto">${who}</b> ואת כל הנתונים שלו (מזונות, מתכונים וימים)? <b>אי אפשר לבטל את זה.</b></p>
+       <div class="actions"><button class="btn" data-act="close-sheet">ביטול</button><button class="btn danger" data-act="adm-confirm-go" data-what="delete" data-id="${esc(id)}">מחק לצמיתות</button></div>`
+    : `<div class="sheet-head"><h2>השבתת משתמש</h2>${CLOSE_BTN}</div><p><b dir="auto">${who}</b> לא יוכל להיכנס לאפליקציה. הנתונים שלו נשמרים, ואפשר להפעיל אותו מחדש בכל רגע.</p>
+       <div class="actions"><button class="btn" data-act="close-sheet">ביטול</button><button class="btn danger" data-act="adm-confirm-go" data-what="disable" data-id="${esc(id)}">השבת</button></div>`);
+}
+async function adminDisable(id, dis){
+  try { await callFn({action:"set_disabled", user: id, disabled: dis}); }
+  catch (e) { toast("הפעולה לא הצליחה. נסה שוב."); return; }
+  const u = (ADM.users || []).find(x => x.id === id); if (u) u.disabled = dis;
+  toast(dis ? "המשתמש הושבת." : "המשתמש הופעל מחדש."); render();
+}
+async function adminDelete(id){
+  try { await callFn({action:"delete_user", user: id}); }
+  catch (e) { toast(e && e.code === "not_disabled" ? "אפשר למחוק רק משתמש מושבת." : "המחיקה לא הצליחה. נסה שוב."); return; }
+  ADM.users = (ADM.users || []).filter(x => x.id !== id); ADM.sel = null; ADM.data = null; toast("המשתמש נמחק."); render();
+}
 async function adminSetTest(id, v){
   const { error } = await SB.rpc("admin_set_test", {p_user: id, p_test: v});
   if (error) { toast("לא נשמר."); return; }
@@ -1861,7 +1904,7 @@ views.admin = () => {
   if (!ADM.users) { adminLoad(); return `<div class="empty">טוען…</div>`; }
   if (ADM.sel) {
     const u = ADM.users.find(x => x.id === ADM.sel) || {};
-    const head = `<div class="row between"><h2 dir="auto">${esc(u.display_name || u.email || "")}</h2><button class="btn" data-act="adm-back">חזרה</button></div>`;
+    const head = `<div class="row between"><div><h2 dir="auto">${esc(u.display_name || u.email || "")}${u.disabled ? '<span class="tag">מושבת</span>' : ""}</h2>${u.display_name ? `<div class="muted small" dir="ltr">${esc(u.email || "")}</div>` : ""}</div><button class="btn" data-act="adm-back">חזרה</button></div>`;
     if (!ADM.data) return head + `<div class="empty">טוען…</div>`;
     const st = {...DEFAULTS, ...(ADM.data.settings || {})};
     const days = Object.values(ADM.data).filter(d => d && d.date && d.items).sort((a, b) => b.date.localeCompare(a.date));
@@ -1899,17 +1942,30 @@ views.admin = () => {
       <section class="card"><table class="adm-table"><thead><tr><th>תאריך</th><th>${KCAL}</th><th>יעד</th><th>מאזן</th><th>חלבון</th></tr></thead><tbody>
       ${rows.map(r => `<tr><td>${esc(r.d.date.slice(8, 10) + "." + r.d.date.slice(5, 7))}${r.d.locked ? "" : ' <span class="tag">פתוח</span>'}</td><td class="num">${k0(r.t.kcal)}</td><td class="num">${k0(r.g)}</td><td class="num">${sgnK(r.bal)}</td><td class="num">${g1(r.t.p)}</td></tr>`).join("") || `<tr><td colspan="5" class="muted">אין עדיין ימים מתועדים.</td></tr>`}
       </tbody></table></section>
-      <div class="row"><button class="btn ghost" data-act="adm-test" data-id="${esc(u.id)}" data-v="${u.is_test ? 0 : 1}">${u.is_test ? "סמן כמשתמש אמיתי" : "סמן כמשתמש בדיקה"}</button></div>`;
+      <section class="card stack" aria-label="ניהול המשתמש">
+        <h3>ניהול</h3>
+        <label class="field">שם<div class="row"><input id="adm-name" type="text" dir="auto" maxlength="80" placeholder="שם מלא" value="${esc(u.display_name || "")}"><button class="btn" data-act="adm-name-save" data-id="${esc(u.id)}">שמור</button></div></label>
+        ${u.role === "admin" ? "" : `<div class="row wrap">
+          ${u.disabled ? `<button class="btn grow" data-act="adm-enable" data-id="${esc(u.id)}">הפעל מחדש</button><button class="btn ghost danger" data-act="adm-delete" data-id="${esc(u.id)}">מחק לצמיתות</button>`
+            : `<button class="btn ghost danger grow" data-act="adm-disable" data-id="${esc(u.id)}">השבת משתמש</button>`}
+        </div>
+        <div class="muted small">${u.disabled ? "המשתמש מושבת: הוא לא יכול להיכנס, והנתונים שלו שמורים. מחיקה לצמיתות מוחקת גם את הנתונים." : "השבתה חוסמת את הכניסה ושומרת את הנתונים. אפשר למחוק רק משתמש מושבת."}</div>`}
+        <button class="btn ghost" data-act="adm-test" data-id="${esc(u.id)}" data-v="${u.is_test ? 0 : 1}">${u.is_test ? "סמן כמשתמש אמיתי" : "סמן כמשתמש בדיקה"}</button>
+      </section>`;
   }
-  const list = ADM.users.filter(u => u.id !== Auth.user.id && (ADM.showTest || !u.is_test));
+  const others = ADM.users.filter(u => u.id !== Auth.user.id && (ADM.showTest || !u.is_test));
+  const list = others.filter(u => !u.disabled), dis = others.filter(u => u.disabled);
   const testCount = ADM.users.filter(u => u.is_test).length;
+  const row = u => `<button class="adm-row" data-act="adm-user" data-id="${esc(u.id)}"><span><span dir="auto">${esc(u.display_name || u.email)}</span>${u.is_test ? '<span class="tag">בדיקה</span>' : ""}${u.disabled ? '<span class="tag">מושבת</span>' : ""}${u.display_name ? `<div class="muted small" dir="ltr" style="text-align:start">${esc(u.email)}</div>` : ""}</span><span class="muted small">הצטרף ${esc(new Date(u.created_at).toLocaleDateString("he-IL"))}</span></button>`;
   return `<h2>מתאמנים</h2>
     <section class="card stack" aria-label="הזמנת מתאמן">
       <h3>הזמנת מתאמן</h3>
+      <input id="inv-name" type="text" dir="auto" maxlength="80" placeholder="שם מלא" aria-label="שם מלא של המתאמן" value="${esc(ADM.invName || "")}">
       <div class="row"><input id="inv-email" type="email" dir="ltr" placeholder="email@example.com" aria-label="אימייל של המתאמן" value="${esc(ADM.invEmail || "")}"><button class="btn primary" style="white-space:nowrap" data-act="adm-invite" ${ADM.inviting ? "disabled" : ""}>שלח הזמנה</button></div>
-      <div class="muted small">המתאמן יקבל אימייל עם קישור לאפליקציה, ויבחר סיסמה בכניסה הראשונה. רק מי שהוזמן יכול להיכנס.</div>
+      <div class="muted small">המתאמן יקבל אימייל עם קישור לאפליקציה, ויאשר את השם ויבחר סיסמה בכניסה הראשונה. רק מי שהוזמן יכול להיכנס.</div>
     </section>
-    <section class="card">${list.map(u => `<button class="adm-row" data-act="adm-user" data-id="${esc(u.id)}"><span dir="auto">${esc(u.display_name || u.email)}${u.is_test ? '<span class="tag">בדיקה</span>' : ""}${u.role === "admin" ? '<span class="tag">מנהל</span>' : ""}</span><span class="muted small">הצטרף ${esc(new Date(u.created_at).toLocaleDateString("he-IL"))}</span></button>`).join("") || `<div class="muted">עוד אין מתאמנים. שלח להם את הקישור לאפליקציה כדי שיירשמו.</div>`}</section>
+    <section class="card">${list.map(row).join("") || `<div class="muted">עוד אין מתאמנים פעילים. הזמן מתאמן כדי להתחיל.</div>`}</section>
+    ${dis.length ? `<button class="btn ghost" data-act="adm-showdis">${ADM.showDisabled ? "הסתר" : "הצג"} משתמשים מושבתים (${dis.length})</button>${ADM.showDisabled ? `<section class="card">${dis.map(row).join("")}</section>` : ""}` : ""}
     ${testCount ? `<button class="btn ghost" data-act="adm-showtest">${ADM.showTest ? "הסתר" : "הצג"} משתמשי בדיקה (${testCount})</button>` : ""}`;
 };
 
@@ -1965,6 +2021,13 @@ const ACT = {
   "adm-back": () => { ADM.sel = null; render(); },
   "adm-test": el => adminSetTest(el.dataset.id, el.dataset.v === "1"),
   "adm-invite": () => adminInvite(),
+  "my-name-save": () => saveMyName(),
+  "adm-name-save": el => adminSaveName(el.dataset.id),
+  "adm-disable": el => adminConfirm(el.dataset.id, "disable"),
+  "adm-enable": el => adminDisable(el.dataset.id, false),
+  "adm-delete": el => adminConfirm(el.dataset.id, "delete"),
+  "adm-confirm-go": el => { closeSheet(); if (el.dataset.what === "delete") adminDelete(el.dataset.id); else adminDisable(el.dataset.id, true); },
+  "adm-showdis": () => { ADM.showDisabled = !ADM.showDisabled; render(); },
   "adm-showtest": () => { ADM.showTest = !ADM.showTest; render(); },
   "label-manual": () => openFoodEditor(null, {thenLog: LBL.log}),
   "end-save": () => saveEnd(),
