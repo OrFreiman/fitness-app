@@ -264,6 +264,10 @@ body.signed-out .secbar{display:none}
 .done-check{align-self:flex-start;font-weight:700}
 .wrow .icon-btn{flex:none;color:var(--muted)}
 .ok{color:var(--deficit)}
+.wlist{max-height:340px;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  mask-image:linear-gradient(to bottom,#000 85%,transparent);-webkit-mask-image:linear-gradient(to bottom,#000 85%,transparent);padding-bottom:18px}
+.wlist:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:12px}
+.wmore{text-align:center;margin-top:6px}
 .chg{border-bottom:1px solid var(--line);padding:6px 0}
 .chg:last-child{border-bottom:0}
 details summary{cursor:pointer;color:var(--accent);font-weight:700}
@@ -739,7 +743,9 @@ function render(){
   const a = document.activeElement, view = $("#view");
   const fid = a && view.contains(a) ? a.id : null;
   let sel = null; try { sel = fid && a.selectionStart != null ? [a.selectionStart, a.selectionEnd] : null; } catch (e) {}
+  const keepScroll = {}; view.querySelectorAll(".wlist").forEach(el => { keepScroll[el.id] = el.scrollTop; });
   view.innerHTML = views[S.tab]();
+  view.querySelectorAll(".wlist").forEach(el => { if (keepScroll[el.id]) el.scrollTop = keepScroll[el.id]; });
   if (S.tab === "history") drawChart();
   if (S.tab === "admin" && ADM.sel && ADM.data) drawChart(adminSeries());
   if (fid) { const el = document.getElementById(fid); if (el) { el.focus({preventScroll:true}); try { if (sel) el.setSelectionRange(sel[0], sel[1]); } catch (e) {} } }
@@ -2419,6 +2425,12 @@ function workoutRow(ctx, w){
   </div>
   ${ctx !== "self" && TR.open === w.id ? `<div class="wdetail">${(w.entries || []).map(e => `<div class="exline"><span dir="auto">${e.done ? '<b class="ok" aria-label="בוצע">✓</b> ' : ""}${esc(e.name)}</span><span class="num">${e.weight != null ? g1(e.weight) + " ק״ג" : "–"}</span></div>${e.note ? `<div class="muted small exnote" dir="auto">${esc(e.note)}</div>` : ""}`).join("")}</div>` : ""}`;
 }
+/* recent workouts: more than 3 → a scrolling box about 3 rows tall */
+function wlistHTML(ctx, list){
+  const rows = list.map(w => workoutRow(ctx, w)).join("");
+  if (list.length <= 3) return rows;
+  return `<div class="wlist" id="wlist-${esc(ctx)}" tabindex="0" aria-label="רשימת אימונים, גלול לעוד">${rows}</div><div class="muted small wmore">${list.length} אימונים · גלול לעוד</div>`;
+}
 function progressCard(ctx){
   const opts = progressOptions(ctx); if (!opts.length) return "";
   const key = (TR.prog && TR.prog[ctx] && opts.some(o => o[0] === TR.prog[ctx])) ? TR.prog[ctx] : opts[0][0];
@@ -2485,7 +2497,7 @@ views.train = () => {
       ${cur ? programCard("self", cur) : `<div class="muted">עוד אין תוכנית נוכחית. צור תוכנית חדשה, או בקש מהמאמן שלך לבנות לך אחת.</div><button class="btn primary" data-act="p-new" data-ctx="self">צור תוכנית</button>`}
     </section>
     ${progressCard("self")}
-    <section class="card" aria-label="אימונים אחרונים"><h3>אימונים אחרונים</h3>${ws.slice(0, 15).map(w => workoutRow("self", w)).join("") || `<div class="muted small">עוד לא רשמת אימונים. לחץ ״התחל אימון״ בתוכנית הנוכחית.</div>`}</section>
+    <section class="card" aria-label="אימונים אחרונים"><h3>אימונים אחרונים</h3>${ws.length ? wlistHTML("self", ws.slice(0, 30)) : `<div class="muted small">עוד לא רשמת אימונים. לחץ ״התחל אימון״ בתוכנית הנוכחית.</div>`}</section>
     ${past.length ? `<section class="card stack" aria-label="תוכניות לא פעילות"><h3>תוכניות לא פעילות (${past.length})</h3>${past.map(p => programCard("self", p, true)).join("")}</section>` : ""}`;
 };
 
@@ -2503,7 +2515,7 @@ function adminTrainingHTML(u){
       ${past.length ? `<div class="sect-label">תוכניות לא פעילות (${past.length})</div>${past.map(p => programCard(ctx, p, true)).join("")}` : ""}
     </section>
     ${progressCard(ctx)}
-    <section class="card" aria-label="אימונים אחרונים של המתאמן"><h3>אימונים אחרונים</h3>${ws.slice(0, 12).map(w => workoutRow(ctx, w)).join("") || `<div class="muted small">עוד לא רשם אימונים.</div>`}</section>
+    <section class="card" aria-label="אימונים אחרונים של המתאמן"><h3>אימונים אחרונים</h3>${ws.length ? wlistHTML(ctx, ws.slice(0, 30)) : `<div class="muted small">עוד לא רשם אימונים.</div>`}</section>
     ${changes.length ? `<section class="card stack" aria-label="שינויים שהמתאמן עשה"><h3>שינויים שהמתאמן עשה בתוכניות</h3>${changes.map(c => `<div class="chg"><div class="muted small">${esc(new Date(c.at).toLocaleString("he-IL", {day:"numeric", month:"numeric", hour:"2-digit", minute:"2-digit"}))} · <span dir="auto">${esc(c.prog)}</span></div><div class="small" dir="auto">${esc(c.text)}</div></div>`).join("")}</section>` : ""}`;
 }
 function kudosSheet(wid){
