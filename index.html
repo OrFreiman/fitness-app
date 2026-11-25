@@ -1247,7 +1247,7 @@ function renderAIReview(){
       <label class="check"><input type="checkbox" id="ai-save" ${AI.saveFood ? "checked" : ""}><span><b>שמור במזונות שלי</b><br><span class="muted small" id="ai-save-note">${AI.unit && AI.byUnit ? `נשמר לפי ${esc(AI.unit.name)} אחד, כך שבפעם הבאה רק תכתוב כמה` : `בפעם הבאה ״${esc(AI.name)}״ יופיע מיד, עם אותם מספרים`}</span></span></label>
       <div class="preview num" id="ai-preview"></div>
     </div>
-    <div class="actions"><button class="btn" data-act="ai-add" data-planned="1">מה אם?</button><button class="btn primary" data-act="ai-add" data-planned="0">הוסף ליום</button></div>`;
+    <div class="actions"><button class="btn" data-act="ai-saveonly" id="ai-saveonly" style="white-space:nowrap;padding-inline:10px;${AI.saveFood ? "" : "display:none"}">שמור בלבד</button><button class="btn" data-act="ai-add" data-planned="1">מה אם?</button><button class="btn primary" data-act="ai-add" data-planned="0">הוסף ליום</button></div>`;
   updateAIPreview();
 }
 function updateAIPreview(){
@@ -1255,7 +1255,25 @@ function updateAIPreview(){
   $("#ai-preview").innerHTML = previewCells(m);
   AI.comps.forEach((c,i) => { const el = $("#ai-kc-" + i); if (el) el.textContent = k0(c.per100.kcal*c.grams/100); });
   const ul = $("#ai-unitline"); if (ul && AI.unit) { const one = scaleM(AI.comps[0].per100, AI.unit.grams / 100); ul.textContent = `${AI.unit.name} אחד (${g1(AI.unit.grams)} גרם): ${k0(one.kcal)} ${KCAL} · ${macLine(one)}`; }
-  document.querySelectorAll('[data-act="ai-add"]').forEach(b => b.disabled = !(aiTotals().grams > 0) || (AI.unit && AI.byUnit && !(AI.unit.count > 0 && AI.unit.grams > 0)));
+  document.querySelectorAll('[data-act="ai-add"],[data-act="ai-saveonly"]').forEach(b => b.disabled = !(aiTotals().grams > 0) || (AI.unit && AI.byUnit && !(AI.unit.count > 0 && AI.unit.grams > 0)));
+}
+/* saves the reviewed estimate as a food (updates a saved food with the same name); returns its id */
+function aiStoreFood(name, m, grams, byUnit){
+  const existing = Store.list("food").find(f => norm(f.name) === norm(name));
+  const id = existing ? existing.id : "food-" + rid();
+  const unitPart = byUnit ? {unitName: AI.unit.name, unitGrams: AI.unit.grams, basis:"unit"} : {unitName: existing?.unitName || (AI.unit ? AI.unit.name : ""), unitGrams: existing?.unitGrams || (AI.unit ? AI.unit.grams : 0), basis: existing?.basis || "g100"};
+  Store.put(id, {...(existing ? Store.get(id) : {}), kind:"food", name, per100: scaleM(m, 100/grams), fav: existing ? !!existing.fav : false, ...unitPart});
+  return id;
+}
+/* "save only": keep the food in Saved without logging anything to the day */
+function aiSaveOnly(){
+  if (!AI || !AI.saveFood) return;
+  const name = ($("#ai-name").value.trim() || AI.name);
+  const {m, grams} = aiTotals(); if (!(grams > 0)) return;
+  const existed = Store.list("food").some(f => norm(f.name) === norm(name));
+  aiStoreFood(name, m, grams, !!(AI.unit && AI.byUnit));
+  AI = null; closeSheet(); S.q = ""; render();
+  toast(existed ? "עודכן בשמורים. לא נוסף ליום." : "נשמר בשמורים. לא נוסף ליום.");
 }
 function aiAdd(planned){
   const name = ($("#ai-name").value.trim() || AI.name);
@@ -1264,13 +1282,7 @@ function aiAdd(planned){
   if (day.locked) { toast("היום הזה נעול. פתח אותו קודם."); return; }
   let src = {type:"ai"};
   const byUnit = !!(AI.unit && AI.byUnit);
-  if (AI.saveFood) {
-    const existing = Store.list("food").find(f => norm(f.name) === norm(name));
-    const id = existing ? existing.id : "food-" + rid();
-    const unitPart = byUnit ? {unitName: AI.unit.name, unitGrams: AI.unit.grams, basis:"unit"} : {unitName: existing?.unitName || (AI.unit ? AI.unit.name : ""), unitGrams: existing?.unitGrams || (AI.unit ? AI.unit.grams : 0), basis: existing?.basis || "g100"};
-    Store.put(id, {...(existing ? Store.get(id) : {}), kind:"food", name, per100: scaleM(m, 100/grams), fav: existing ? !!existing.fav : false, ...unitPart});
-    src = {type:"food", id};
-  }
+  if (AI.saveFood) src = {type:"food", id: aiStoreFood(name, m, grams, byUnit)};
   const amount = byUnit ? {qty: AI.unit.count, unitKey:"unit", unitLabel: AI.unit.name, per1: scaleM(m, 1/AI.unit.count)} : {qty: grams, unitKey:"g", unitLabel:"גרם", per1: scaleM(m, 1/grams)};
   day.items.push({id: rid(), name, ...amount, unsure: !!AI.unsure, pct: settings().unsurePct, planned: !!planned, src, t: Date.now(),
     components: AI.comps.map(c => ({name:c.name, grams:c.grams}))});
@@ -1984,6 +1996,7 @@ const ACT = {
   "ai-retry": () => aiEstimate(AI ? AI.q : S.q.trim(), {quick: !!(AI && AI.quick)}),
   "ai-rm": el => { AI.comps.splice(+el.dataset.i, 1); if (!AI.comps.length) { closeSheet(); return; } renderAIReview(); },
   "ai-add": el => aiAdd(el.dataset.planned === "1"),
+  "ai-saveonly": () => aiSaveOnly(),
   "ai-by": el => { AI.name = ($("#ai-name").value.trim() || AI.name); AI.byUnit = el.dataset.u === "1"; if (AI.byUnit && AI.unit.grams > 0) AI.unit.count = Math.round(AI.comps[0].grams / AI.unit.grams * 10) / 10; AI.comps[0].grams = AI.unit.count * AI.unit.grams; renderAIReview(); },
   "item": el => editItem(el.dataset.id),
   "close-sheet": () => closeSheet(),
@@ -2069,7 +2082,7 @@ document.addEventListener("change", e => {
   const t = e.target;
   if (t.id === "is-unsure") { IS.unsure = t.checked; updatePreview(); }
   else if (t.id === "ai-unsure") { AI.unsure = t.checked; updateAIPreview(); }
-  else if (t.id === "ai-save") { AI.saveFood = t.checked; }
+  else if (t.id === "ai-save") { AI.saveFood = t.checked; const b = $("#ai-saveonly"); if (b) b.style.display = t.checked ? "" : "none"; }
   else if (t.id === "lbl-file" && t.files && t.files[0]) { onLabelPhoto(t.files[0]); }
   else if (t.id === "round-up") { saveSettings({roundUp: t.checked}); }
   else if (t.id && t.id.startsWith("set-")) {
