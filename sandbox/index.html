@@ -2031,14 +2031,23 @@ views.admin = () => {
   const list = others.filter(u => !u.disabled), dis = others.filter(u => u.disabled);
   const testCount = ADM.users.filter(u => u.is_test).length;
   const row = u => `<button class="adm-row" data-act="adm-user" data-id="${esc(u.id)}"><span><span dir="auto">${esc(u.display_name || u.email)}</span>${u.is_test ? '<span class="tag">בדיקה</span>' : ""}${u.disabled ? '<span class="tag">מושבת</span>' : ""}${u.display_name ? `<div class="muted small" dir="ltr" style="text-align:start">${esc(u.email)}</div>` : ""}</span><span class="muted small">הצטרף ${esc(new Date(u.created_at).toLocaleDateString("he-IL"))}</span></button>`;
+  const mine = MODS();
   return `<h2>מתאמנים</h2>
+    <section class="card stack" aria-label="מה אני רואה באפליקציה">
+      <h3>מה אני רואה באפליקציה</h3>
+      <div class="row wrap">
+        <label class="check"><input type="checkbox" id="adm-food" data-id="${esc(Auth.user.id)}" ${mine.food ? "checked" : ""}><span>תזונה</span></label>
+        <label class="check"><input type="checkbox" id="adm-train" data-id="${esc(Auth.user.id)}" ${mine.train ? "checked" : ""}><span>תוכנית אימון</span></label>
+      </div>
+      <div class="muted small">משפיע רק עליך. כדי לראות את האימונים של מתאמנים צריך להפעיל כאן ״תוכנית אימון״. למתאמנים בוחרים בדף של כל אחד.</div>
+    </section>
     <section class="card stack" aria-label="הזמנת מתאמן">
       <h3>הזמנת מתאמן</h3>
       <input id="inv-name" type="text" dir="auto" maxlength="80" placeholder="שם מלא" aria-label="שם מלא של המתאמן" value="${esc(ADM.invName || "")}">
       <div class="row"><input id="inv-email" type="email" dir="ltr" placeholder="email@example.com" aria-label="אימייל של המתאמן" value="${esc(ADM.invEmail || "")}"><button class="btn primary" style="white-space:nowrap" data-act="adm-invite" ${ADM.inviting ? "disabled" : ""}>שלח הזמנה</button></div>
       <div class="row wrap"><span class="muted small">יקבל גישה ל:</span>
         <label class="check"><input type="checkbox" id="inv-food" ${ADM.invFood === false ? "" : "checked"}><span>תזונה</span></label>
-        <label class="check"><input type="checkbox" id="inv-train" ${ADM.invTrain === false ? "" : "checked"}><span>אימונים</span></label></div>
+        <label class="check"><input type="checkbox" id="inv-train" ${(ADM.invTrain ?? INVITE_TRAIN_DEFAULT) ? "checked" : ""}><span>אימונים</span></label></div>
       <div class="muted small">המתאמן יקבל אימייל עם קישור לאפליקציה, ויאשר את השם ויבחר סיסמה בכניסה הראשונה. רק מי שהוזמן יכול להיכנס. אפשר לשנות את הגישה אחר כך בדף שלו.</div>
     </section>
     <section class="card">${list.map(row).join("") || `<div class="muted">עוד אין מתאמנים פעילים. הזמן מתאמן כדי להתחיל.</div>`}</section>
@@ -2168,10 +2177,13 @@ let rT; window.addEventListener("resize", () => { clearTimeout(rT); rT = setTime
    program-<id>  {kind:"program", name, split:"AB"|"ABC"|"FB", status:"current"|"past", days:[{key,title,ex:[{id,name,sets,reps,notes,lib,yt}]}], by:"coach"|"self", changes:[{at,by,text}], createdAt}
    workout-<date>-<id> {kind:"workout", date, programId, programName, dayKey, dayTitle, entries:[{exId,name,sets,reps,lib,weight,note}], at}
    kudos-<workoutId> {kind:"kudos", workoutId, text, at}   (written by the coach) */
+const INVITE_TRAIN_DEFAULT = true; // sandbox: on. Live build sets this to false while training is hidden.
 const SPLITS = {AB:{label:"A/B", keys:["A","B"]}, ABC:{label:"A/B/C", keys:["A","B","C"]}, FB:{label:"גוף מלא", keys:["F"]}};
 const dayName = (p, d) => (p.split === "FB" ? "גוף מלא" : "אימון " + d.key) + (d.title ? " · " + d.title : "");
 const EXIMG = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/";
-const MODS = () => { const p = Auth.profile || {}; return Auth.isAdmin ? {food:true, train:true} : {food: p.food_enabled !== false, train: p.workouts_enabled !== false}; };
+const MODS = () => { const p = Auth.profile || {}; const m = {food: p.food_enabled !== false, train: p.workouts_enabled !== false};
+  if (Auth.isAdmin && !m.food && !m.train) m.food = true; // the coach always keeps at least the food section
+  return m; };
 const TAB_MOD = {today:"food", saved:"food", history:"food", train:"train"};
 /* Two sections, picked at the top: תזונה (food, default) and תוכנית אימון (training).
    The bottom tabs show only the chosen section's tabs, plus מתאמנים (coach) and הגדרות. */
@@ -2527,6 +2539,7 @@ async function adminSetModules(id, food, train){
   const { error } = await SB.rpc("admin_set_modules", {p_user: id, p_food: food, p_workouts: train});
   if (error) { toast("לא נשמר."); render(); return; }
   const u = (ADM.users || []).find(x => x.id === id); if (u) { u.food_enabled = food; u.workouts_enabled = train; }
+  if (id === Auth.user.id && Auth.profile) { Auth.profile.food_enabled = food; Auth.profile.workouts_enabled = train; }
   toast("נשמר."); render();
 }
 
