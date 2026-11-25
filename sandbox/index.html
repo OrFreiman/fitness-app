@@ -227,6 +227,12 @@ body.signed-out nav.tabs{display:none}
 .adm-table{width:100%;border-collapse:collapse;font-size:.9rem}
 .adm-table th,.adm-table td{padding:7px 4px;border-bottom:1px solid var(--line);text-align:start}
 .tag{display:inline-block;font-size:.72rem;padding:2px 8px;border-radius:99px;background:var(--line);margin-inline-start:6px}
+/* section switch: תזונה / תוכנית אימון */
+.secbar{padding:4px 16px 2px}
+.secbar .seg{padding:4px;border-radius:18px;background:var(--surface);box-shadow:var(--shadow)}
+.secbar .seg button{min-height:46px;font-size:1rem;border-radius:14px}
+.secbar .seg button[aria-pressed="true"]{background:linear-gradient(135deg,var(--hero-a),var(--hero-b));color:#fff;box-shadow:none}
+body.signed-out .secbar{display:none}
 /* training */
 .btn.sm{min-height:38px;padding:6px 12px;font-size:.9rem;border-radius:13px}
 .prog{display:flex;flex-direction:column;gap:10px}
@@ -264,6 +270,10 @@ details summary{cursor:pointer;color:var(--accent);font-weight:700}
     <h1><img class="logo" src="../icons/icon.svg" alt="" aria-hidden="true">מעקב כושר <span class="tag">ארגז חול</span></h1>
     <span id="store-pill" class="store-pill"><i></i><span>טוען…</span></span>
   </header>
+  <div class="secbar" id="secbar" hidden><div class="seg" role="group" aria-label="אזור באפליקציה">
+    <button data-act="sec" data-s="food" aria-pressed="true">תזונה</button>
+    <button data-act="sec" data-s="train" aria-pressed="false">תוכנית אימון</button>
+  </div></div>
   <main id="view"><div class="empty">טוען את הנתונים שלך…</div></main>
 </div>
 <nav class="tabs" aria-label="אזורים"><div class="inner">
@@ -628,7 +638,7 @@ const basicById = id => BASIC.find(b => b.id === id);
 
 /* ============ storage ============ */
 const DEFAULTS = {maintenance:2000, calGoal:1700, proteinGoal:120, unsurePct:25, sheet:null, roundUp:false};
-const S = { tab:"today", day:null, q:"", hist:30, sample:null, mcp:null, tabCache:{} };
+const S = { sec:"food", tab:"today", day:null, q:"", hist:30, sample:null, mcp:null, tabCache:{} };
 
 const Store = {
   mode:"loading", coll:null, docs:{}, queues:{}, loaded:false, slow:false,
@@ -1964,6 +1974,7 @@ views.admin = () => {
     const avg = last7.length ? last7.reduce((a, r) => a + r.bal, 0) / last7.length : 0;
     const total = locked.reduce((a, r) => a + r.bal, 0);
     return head + `
+      ${S.sec !== "food" ? "" : `
       ${u.food_enabled === false ? `<div class="note">אזור התזונה כבוי למתאמן הזה. אפשר להפעיל אותו בכרטיס ״ניהול״.</div>` : ""}
       <section class="card stack" aria-label="ההגדרות של המתאמן">
         <h3>ההגדרות שלו</h3>
@@ -1989,7 +2000,8 @@ views.admin = () => {
       <section class="card"><table class="adm-table"><thead><tr><th>תאריך</th><th>${KCAL}</th><th>יעד</th><th>מאזן</th><th>חלבון</th></tr></thead><tbody>
       ${rows.map(r => `<tr><td>${esc(r.d.date.slice(8, 10) + "." + r.d.date.slice(5, 7))}${r.d.locked ? "" : ' <span class="tag">פתוח</span>'}</td><td class="num">${k0(r.t.kcal)}</td><td class="num">${k0(r.g)}</td><td class="num">${sgnK(r.bal)}</td><td class="num">${g1(r.t.p)}</td></tr>`).join("") || `<tr><td colspan="5" class="muted">אין עדיין ימים מתועדים.</td></tr>`}
       </tbody></table></section>
-      ${adminTrainingHTML(u) || ""}
+      `}
+      ${S.sec === "train" ? (adminTrainingHTML(u) || "") : ""}
       <section class="card stack" aria-label="ניהול המשתמש">
         <h3>ניהול</h3>
         ${u.role === "admin" ? "" : `<div class="sect-label">מה המתאמן רואה באפליקציה</div>
@@ -2150,11 +2162,17 @@ const dayName = (p, d) => (p.split === "FB" ? "גוף מלא" : "אימון " + 
 const EXIMG = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/";
 const MODS = () => { const p = Auth.profile || {}; return Auth.isAdmin ? {food:true, train:true} : {food: p.food_enabled !== false, train: p.workouts_enabled !== false}; };
 const TAB_MOD = {today:"food", saved:"food", history:"food", train:"train"};
+/* Two sections, picked at the top: תזונה (food, default) and תוכנית אימון (training).
+   The bottom tabs show only the chosen section's tabs, plus מתאמנים (coach) and הגדרות. */
 function applyModules(){
   const m = MODS();
-  document.querySelectorAll("nav.tabs button[data-tab]").forEach(b => { const need = TAB_MOD[b.dataset.tab]; if (need) b.style.display = m[need] ? "" : "none"; });
+  if (!m[S.sec]) S.sec = m.food ? "food" : m.train ? "train" : S.sec;
+  const bar = $("#secbar"); if (bar) { bar.hidden = !(m.food && m.train);
+    bar.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.s === S.sec))); }
+  document.querySelectorAll("nav.tabs button[data-tab]").forEach(b => { const need = TAB_MOD[b.dataset.tab]; if (need) b.style.display = need === S.sec && m[need] ? "" : "none"; });
   const need = TAB_MOD[S.tab];
-  if (need && !m[need]) S.tab = m.food ? "today" : m.train ? "train" : "nomods";
+  if (!m.food && !m.train) { if (need) S.tab = "nomods"; return; }
+  if (need && need !== S.sec) S.tab = S.sec === "food" ? "today" : "train";
 }
 views.nomods = () => `<div class="card stack"><h2>אין אזורים פעילים</h2><div class="muted">המאמן שלך עוד לא פתח לך את התזונה או את האימונים. פנה אליו כדי לקבל גישה.</div></div>`;
 
@@ -2493,6 +2511,10 @@ async function adminSetModules(id, food, train){
 
 /* ---- events ---- */
 Object.assign(ACT, {
+  "sec": el => { const sec = el.dataset.s; if (sec === S.sec) return; S.sec = sec;
+    if (S.tab !== "admin" && S.tab !== "settings") S.tab = sec === "food" ? "today" : "train";
+    if (TR.mode !== "home" && !(TR.mode === "edit" && TR.ctx !== "self" && S.tab === "admin" && sec === "train")) { TR.mode = "home"; TR.draft = null; TR.w = null; }
+    closeSheet(); render(); window.scrollTo(0, 0); },
   "p-new": el => trOpenEditor(el.dataset.ctx, null),
   "p-edit": el => trOpenEditor(el.dataset.ctx, el.dataset.p),
   "p-cancel": () => { TR.mode = "home"; TR.draft = null; render(); },
