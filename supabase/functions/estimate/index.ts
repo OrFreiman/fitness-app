@@ -4,7 +4,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 // One server function for the app:
 //   {action:"estimate", prompt, tier?, images?: [base64 jpeg]}  -> Claude reply parsed as JSON (counts toward the daily limit)
 //   {action:"barcode", code}                                    -> product from the shared table or Open Food Facts (free)
-//   {action:"invite", email, name?, redirectTo}                 -> admin only: email an invitation to join
+//   {action:"invite", email, name?, food?, workouts?, redirectTo} -> admin only: email an invitation to join
 //   {action:"set_disabled", user, disabled}                     -> admin only: block / unblock a trainee's login (data kept)
 //   {action:"delete_user", user}                                -> admin only: permanently delete a DISABLED trainee and their data
 // verify_jwt is off because the function checks the login itself (works with Supabase's new signing keys).
@@ -127,7 +127,10 @@ Deno.serve(async (req) => {
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "bad_email" });
     const redirectTo = /^https:\/\/orfreiman\.github\.io\/fitness-app\//.test(String(body.redirectTo || "")) ? body.redirectTo : "https://orfreiman.github.io/fitness-app/";
     const name = String(body.name || "").trim().slice(0, 80);
-    const { error } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo, data: name ? { full_name: name } : undefined });
+    // which parts of the app the new trainee gets (default: both)
+    const meta: Record<string, unknown> = { food: body.food !== false, workouts: body.workouts !== false };
+    if (name) meta.full_name = name;
+    const { error } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo, data: meta });
     if (error) {
       console.error("invite", error.message);
       const m = error.message.toLowerCase();
