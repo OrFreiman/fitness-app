@@ -3,7 +3,7 @@
 Hebrew calorie and macro tracker with logins, built on Supabase and hosted on GitHub Pages.
 
 - **Live:** `index.html` (https://orfreiman.github.io/fitness-app/)
-- **Test:** `test/index.html` (https://orfreiman.github.io/fitness-app/test/) — same database, marked "בדיקה". Try changes here first, then copy to `index.html`.
+- **Sandbox:** `sandbox/index.html` (https://orfreiman.github.io/fitness-app/sandbox/) — its own Supabase project (`mbfpoghxzcatqvdcleox`, empty), marked "ארגז חול". Every change goes here first, then to `index.html` after approval.
 - **Database:** Supabase project `gkttfnwsdhfuknfmwolp` (Frankfurt). Schema in `supabase/migrations/`.
 - **Server function:** `supabase/functions/estimate` — Claude estimates and label photos (Claude Haiku, key in the `ANTHROPIC_API_KEY` secret), daily limits, barcode lookup in Open Food Facts.
 
