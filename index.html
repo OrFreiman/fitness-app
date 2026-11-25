@@ -227,6 +227,50 @@ body.signed-out nav.tabs{display:none}
 .adm-table{width:100%;border-collapse:collapse;font-size:.9rem}
 .adm-table th,.adm-table td{padding:7px 4px;border-bottom:1px solid var(--line);text-align:start}
 .tag{display:inline-block;font-size:.72rem;padding:2px 8px;border-radius:99px;background:var(--line);margin-inline-start:6px}
+/* section switch: תזונה / תוכנית אימון */
+.secbar{padding:4px 16px 2px}
+.secbar .seg{padding:4px;border-radius:18px;background:var(--surface);box-shadow:var(--shadow)}
+.secbar .seg button{min-height:46px;font-size:1rem;border-radius:14px}
+.secbar .seg button[aria-pressed="true"]{background:linear-gradient(135deg,var(--hero-a),var(--hero-b));color:#fff;box-shadow:none}
+body.signed-out .secbar{display:none}
+/* training */
+.btn.sm{min-height:38px;padding:6px 12px;font-size:.9rem;border-radius:13px}
+.prog{display:flex;flex-direction:column;gap:10px}
+.pday{background:var(--surface-2);border-radius:16px;padding:10px 12px;display:flex;flex-direction:column;gap:4px}
+.exline{display:flex;justify-content:space-between;gap:10px;font-size:.95rem;padding:3px 0}
+.exnote{margin-top:-3px;padding-bottom:2px}
+.exrow{display:flex;align-items:center;gap:4px;border-bottom:1px solid var(--line);padding:6px 0}
+.exrow:last-child{border-bottom:0}
+.exrow .main{flex:1;min-width:0;background:none;border:0;text-align:start;cursor:pointer;padding:4px 0}
+.exres{display:flex;flex-direction:column;border-radius:16px;overflow:hidden;background:var(--surface-2)}
+.exhit{display:flex;gap:10px;align-items:center;background:none;border:0;border-bottom:1px solid var(--line);padding:8px;text-align:start;cursor:pointer;min-height:56px}
+.exhit:last-child{border-bottom:0}
+.exhit img{width:56px;height:42px;object-fit:cover;border-radius:8px;background:#fff;flex:none}
+.exhit span{display:flex;flex-direction:column}
+.demo{position:relative;width:96px;aspect-ratio:4/3;border-radius:12px;overflow:hidden;background:#fff;flex:none}
+.demo.big{width:100%;max-width:420px;align-self:center}
+.demo img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.demo img:nth-child(2){animation:demoflip 1.8s steps(1) infinite}
+@keyframes demoflip{0%{opacity:0}50%{opacity:1}}
+@media (prefers-reduced-motion: reduce){.demo img:nth-child(2){animation:none;opacity:0}}
+.wex .last{min-width:96px;text-align:center;background:var(--surface-2);border-radius:14px;padding:6px 8px;align-self:flex-end}
+.wrow{display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--line);padding:8px 0}
+.wrow .main{flex:1;min-width:0;background:none;border:0;text-align:start;cursor:pointer;padding:4px 0}
+.wdetail{background:var(--surface-2);border-radius:14px;padding:8px 12px;margin:4px 0 8px}
+.kudos{display:inline-block;margin-top:4px;font-size:.82rem;font-weight:700;color:var(--accent-2);background:color-mix(in srgb,var(--accent-2) 12%,transparent);border-radius:99px;padding:2px 10px}
+.kudos-banner{border-radius:18px;padding:12px 14px;font-weight:700;color:#fff;background:linear-gradient(135deg,var(--hero-b),var(--hero-c))}
+.prog.off > :not(.row.wrap), .prog.off .row.wrap > :not([data-act="p-current"]){opacity:.5;filter:grayscale(1)}
+.tag.on{background:color-mix(in srgb,var(--deficit) 18%,transparent);color:var(--deficit);font-weight:700}
+.done-check{align-self:flex-start;font-weight:700}
+.wrow .icon-btn{flex:none;color:var(--muted)}
+.ok{color:var(--deficit)}
+.wlist{max-height:340px;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  mask-image:linear-gradient(to bottom,#000 85%,transparent);-webkit-mask-image:linear-gradient(to bottom,#000 85%,transparent);padding-bottom:18px}
+.wlist:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:12px}
+.wmore{text-align:center;margin-top:6px}
+.chg{border-bottom:1px solid var(--line);padding:6px 0}
+.chg:last-child{border-bottom:0}
+details summary{cursor:pointer;color:var(--accent);font-weight:700}
 </style>
 </head>
 <body>
@@ -235,12 +279,17 @@ body.signed-out nav.tabs{display:none}
     <h1><img class="logo" src="icons/icon.svg" alt="" aria-hidden="true">מעקב כושר</h1>
     <span id="store-pill" class="store-pill"><i></i><span>טוען…</span></span>
   </header>
+  <div class="secbar" id="secbar" hidden><div class="seg" role="group" aria-label="אזור באפליקציה">
+    <button data-act="sec" data-s="food" aria-pressed="true">תזונה</button>
+    <button data-act="sec" data-s="train" aria-pressed="false">תוכנית אימון</button>
+  </div></div>
   <main id="view"><div class="empty">טוען את הנתונים שלך…</div></main>
 </div>
 <nav class="tabs" aria-label="אזורים"><div class="inner">
   <button data-act="tab" data-tab="today"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>היום</button>
   <button data-act="tab" data-tab="saved"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1Z"/></svg>שמורים</button>
   <button data-act="tab" data-tab="history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20V4M4 20h16"/><path d="M8 14v3M12 10v7M16 12v5"/></svg>היסטוריה</button>
+  <button data-act="tab" data-tab="train"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 9v6M6 7v10M18 7v10M21 9v6M6 12h12"/></svg>אימונים</button>
   <button data-act="tab" data-tab="admin" id="tab-admin" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.8-3 3-4.5 5.5-4.5s4.7 1.5 5.5 4.5"/><circle cx="17" cy="9" r="2.4"/><path d="M15.5 14.6c2.3.1 4 1.4 4.8 4.4"/></svg>מתאמנים</button>
   <button data-act="tab" data-tab="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>הגדרות</button>
 </div></nav>
@@ -598,7 +647,7 @@ const basicById = id => BASIC.find(b => b.id === id);
 
 /* ============ storage ============ */
 const DEFAULTS = {maintenance:2000, calGoal:1700, proteinGoal:120, unsurePct:25, sheet:null, roundUp:false};
-const S = { tab:"today", day:null, q:"", hist:30, sample:null, mcp:null, tabCache:{} };
+const S = { sec:"food", tab:"today", day:null, q:"", hist:30, sample:null, mcp:null, tabCache:{} };
 
 const Store = {
   mode:"loading", coll:null, docs:{}, queues:{}, loaded:false, slow:false,
@@ -686,6 +735,7 @@ function render(){
   const pill = $("#store-pill");
   if (!Auth.user) { pill.className = "store-pill local"; pill.lastElementChild.textContent = "לא מחובר"; return; }
   $("#tab-admin").style.display = Auth.isAdmin ? "" : "none";
+  applyModules();
   if (Store.mode === "cloud") { pill.className = "store-pill"; pill.lastElementChild.textContent = Store.slow ? "אין חיבור, מנסה שוב" : "נשמר בחשבון שלך"; }
   else if (Store.mode === "local") { pill.className = "store-pill local"; pill.lastElementChild.textContent = "בדפדפן הזה בלבד"; }
   document.querySelectorAll("nav.tabs button").forEach(b => b.setAttribute("aria-current", b.dataset.tab === S.tab ? "page" : "false"));
@@ -693,7 +743,9 @@ function render(){
   const a = document.activeElement, view = $("#view");
   const fid = a && view.contains(a) ? a.id : null;
   let sel = null; try { sel = fid && a.selectionStart != null ? [a.selectionStart, a.selectionEnd] : null; } catch (e) {}
+  const keepScroll = {}; view.querySelectorAll(".wlist").forEach(el => { keepScroll[el.id] = el.scrollTop; });
   view.innerHTML = views[S.tab]();
+  view.querySelectorAll(".wlist").forEach(el => { if (keepScroll[el.id]) el.scrollTop = keepScroll[el.id]; });
   if (S.tab === "history") drawChart();
   if (S.tab === "admin" && ADM.sel && ADM.data) drawChart(adminSeries());
   if (fid) { const el = document.getElementById(fid); if (el) { el.focus({preventScroll:true}); try { if (sel) el.setSelectionRange(sel[0], sel[1]); } catch (e) {} } }
@@ -1030,7 +1082,7 @@ views.settings = () => {
 
   <section class="card stack" aria-label="איפה הנתונים">
     <h3>איפה הנתונים שלך נשמרים</h3>
-    <div class="muted small">המזונות, המתכונים והימים שלך נשמרים בחשבון שלך. הם זמינים בכל מכשיר שבו תתחבר, ומשתמשים אחרים לא יכולים לראות אותם. המאמן שלך (מנהל האפליקציה) יכול לצפות ביומן כדי לעקוב אחרי ההתקדמות שלך.</div>
+    <div class="muted small">המזונות, המתכונים, הימים והאימונים שלך נשמרים בחשבון שלך. הם זמינים בכל מכשיר שבו תתחבר, ומשתמשים אחרים לא יכולים לראות אותם. המאמן שלך (מנהל האפליקציה) יכול לצפות ביומן ובאימונים כדי לעקוב אחרי ההתקדמות שלך, לבנות לך תוכניות אימון ולתת לך ״כל הכבוד״.</div>
   </section>`;
 };
 
@@ -1679,7 +1731,7 @@ const Auth = {
     if (this.started === this.user.id) return; this.started = this.user.id;
     document.body.classList.remove("signed-out");
     S.sample = Claude; S.mcp = null;
-    try { const { data } = await SB.from("profiles").select("role,display_name,disabled").eq("id", this.user.id).maybeSingle();
+    try { const { data } = await SB.from("profiles").select("role,display_name,disabled,food_enabled,workouts_enabled").eq("id", this.user.id).maybeSingle();
       this.profile = data || {}; this.isAdmin = !!(data && data.role === "admin");
       if (data && data.disabled) { this.started = false; await SB.auth.signOut(); AUTHV.mode = "login"; AUTHV.err = "החשבון שלך הושבת. פנה למאמן שלך."; showAuth(); return; }
     } catch (e) {}
@@ -1840,14 +1892,14 @@ const sgnG = v => `\u2066${v > 0.05 ? "+" : v < -0.05 ? "−" : ""}${g1(Math.abs
 const ADM = {users:null, sel:null, data:null, showTest:false, loading:false};
 async function adminLoad(){
   if (ADM.loading) return; ADM.loading = true;
-  const { data, error } = await SB.from("profiles").select("id,email,display_name,role,plan,is_test,disabled,created_at").order("created_at");
+  const { data, error } = await SB.from("profiles").select("id,email,display_name,role,plan,is_test,disabled,food_enabled,workouts_enabled,created_at").order("created_at");
   ADM.loading = false; ADM.users = error ? [] : data; render();
 }
 async function adminOpen(id){
   ADM.sel = id; ADM.data = null; render();
   const docs = {};
   for (let from = 0; ; from += 1000) {
-    const { data, error } = await SB.from("docs").select("id,data").eq("user_id", id).in("kind", ["day", "settings"]).range(from, from + 999);
+    const { data, error } = await SB.from("docs").select("id,data").eq("user_id", id).in("kind", ["day", "settings", "program", "workout", "kudos"]).range(from, from + 999);
     if (error) break; data.forEach(r => docs[r.id] = r.data); if (data.length < 1000) break;
   }
   if (ADM.sel === id) { ADM.data = docs; render(); }
@@ -1856,10 +1908,12 @@ async function adminInvite(){
   const el = $("#inv-email"); const email = (el ? el.value : "").trim();
   const nm = $("#inv-name"); const name = (nm ? nm.value : "").trim();
   ADM.invEmail = email; ADM.invName = name;
+  const food = !!($("#inv-food") || {}).checked, workouts = !!($("#inv-train") || {}).checked; ADM.invFood = food; ADM.invTrain = workouts;
+  if (!food && !workouts) { toast("בחר לפחות אזור אחד: תזונה או אימונים."); return; }
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { toast("הזן אימייל תקין."); return; }
   ADM.inviting = true; render();
   try {
-    await callFn({action:"invite", email, name, redirectTo: location.origin + location.pathname});
+    await callFn({action:"invite", email, name, food, workouts, redirectTo: location.origin + location.pathname});
     toast("ההזמנה נשלחה ל־" + (name || email)); ADM.invEmail = ""; ADM.invName = ""; ADM.users = null;
   } catch (e) {
     const c = e && e.code;
@@ -1918,6 +1972,7 @@ views.admin = () => {
     const u = ADM.users.find(x => x.id === ADM.sel) || {};
     const head = `<div class="row between"><div><h2 dir="auto">${esc(u.display_name || u.email || "")}${u.disabled ? '<span class="tag">מושבת</span>' : ""}</h2>${u.display_name ? `<div class="muted small" dir="ltr">${esc(u.email || "")}</div>` : ""}</div><button class="btn" data-act="adm-back">חזרה</button></div>`;
     if (!ADM.data) return head + `<div class="empty">טוען…</div>`;
+    if (TR.mode === "edit" && TR.draft && TR.ctx === u.id) return editorView();
     const st = {...DEFAULTS, ...(ADM.data.settings || {})};
     const days = Object.values(ADM.data).filter(d => d && d.date && d.items).sort((a, b) => b.date.localeCompare(a.date));
     const rows = days.slice(0, 30).map(d => { const t = dayTotals(d); const m = d.locked && d.snap ? d.snap.maintenance : st.maintenance; const g = d.locked && d.snap ? d.snap.calGoal : st.calGoal; return {d, t, m, g, bal: t.kcal - m}; });
@@ -1930,6 +1985,8 @@ views.admin = () => {
     const avg = last7.length ? last7.reduce((a, r) => a + r.bal, 0) / last7.length : 0;
     const total = locked.reduce((a, r) => a + r.bal, 0);
     return head + `
+      ${S.sec !== "food" ? "" : `
+      ${u.food_enabled === false ? `<div class="note">אזור התזונה כבוי למתאמן הזה. אפשר להפעיל אותו בכרטיס ״ניהול״.</div>` : ""}
       <section class="card stack" aria-label="ההגדרות של המתאמן">
         <h3>ההגדרות שלו</h3>
         <div class="grid2">
@@ -1954,8 +2011,13 @@ views.admin = () => {
       <section class="card"><table class="adm-table"><thead><tr><th>תאריך</th><th>${KCAL}</th><th>יעד</th><th>מאזן</th><th>חלבון</th></tr></thead><tbody>
       ${rows.map(r => `<tr><td>${esc(r.d.date.slice(8, 10) + "." + r.d.date.slice(5, 7))}${r.d.locked ? "" : ' <span class="tag">פתוח</span>'}</td><td class="num">${k0(r.t.kcal)}</td><td class="num">${k0(r.g)}</td><td class="num">${sgnK(r.bal)}</td><td class="num">${g1(r.t.p)}</td></tr>`).join("") || `<tr><td colspan="5" class="muted">אין עדיין ימים מתועדים.</td></tr>`}
       </tbody></table></section>
+      `}
+      ${S.sec === "train" ? (adminTrainingHTML(u) || "") : ""}
       <section class="card stack" aria-label="ניהול המשתמש">
         <h3>ניהול</h3>
+        ${u.role === "admin" ? "" : `<div class="sect-label">מה המתאמן רואה באפליקציה</div>
+        <label class="check"><input type="checkbox" id="adm-food" data-id="${esc(u.id)}" ${u.food_enabled !== false ? "checked" : ""}><span>תזונה<div class="muted small">יומן האוכל, שמורים והיסטוריה</div></span></label>
+        <label class="check"><input type="checkbox" id="adm-train" data-id="${esc(u.id)}" ${u.workouts_enabled !== false ? "checked" : ""}><span>אימונים<div class="muted small">תוכניות אימון ורישום משקלים</div></span></label>`}
         <label class="field">שם<div class="row"><input id="adm-name" type="text" dir="auto" maxlength="80" placeholder="שם מלא" value="${esc(u.display_name || "")}"><button class="btn" data-act="adm-name-save" data-id="${esc(u.id)}">שמור</button></div></label>
         ${u.role === "admin" ? "" : `<div class="row wrap">
           ${u.disabled ? `<button class="btn grow" data-act="adm-enable" data-id="${esc(u.id)}">הפעל מחדש</button><button class="btn ghost danger" data-act="adm-delete" data-id="${esc(u.id)}">מחק לצמיתות</button>`
@@ -1969,12 +2031,24 @@ views.admin = () => {
   const list = others.filter(u => !u.disabled), dis = others.filter(u => u.disabled);
   const testCount = ADM.users.filter(u => u.is_test).length;
   const row = u => `<button class="adm-row" data-act="adm-user" data-id="${esc(u.id)}"><span><span dir="auto">${esc(u.display_name || u.email)}</span>${u.is_test ? '<span class="tag">בדיקה</span>' : ""}${u.disabled ? '<span class="tag">מושבת</span>' : ""}${u.display_name ? `<div class="muted small" dir="ltr" style="text-align:start">${esc(u.email)}</div>` : ""}</span><span class="muted small">הצטרף ${esc(new Date(u.created_at).toLocaleDateString("he-IL"))}</span></button>`;
+  const mine = MODS();
   return `<h2>מתאמנים</h2>
+    <section class="card stack" aria-label="מה אני רואה באפליקציה">
+      <h3>מה אני רואה באפליקציה</h3>
+      <div class="row wrap">
+        <label class="check"><input type="checkbox" id="adm-food" data-id="${esc(Auth.user.id)}" ${mine.food ? "checked" : ""}><span>תזונה</span></label>
+        <label class="check"><input type="checkbox" id="adm-train" data-id="${esc(Auth.user.id)}" ${mine.train ? "checked" : ""}><span>תוכנית אימון</span></label>
+      </div>
+      <div class="muted small">משפיע רק עליך. כדי לראות את האימונים של מתאמנים צריך להפעיל כאן ״תוכנית אימון״. למתאמנים בוחרים בדף של כל אחד.</div>
+    </section>
     <section class="card stack" aria-label="הזמנת מתאמן">
       <h3>הזמנת מתאמן</h3>
       <input id="inv-name" type="text" dir="auto" maxlength="80" placeholder="שם מלא" aria-label="שם מלא של המתאמן" value="${esc(ADM.invName || "")}">
       <div class="row"><input id="inv-email" type="email" dir="ltr" placeholder="email@example.com" aria-label="אימייל של המתאמן" value="${esc(ADM.invEmail || "")}"><button class="btn primary" style="white-space:nowrap" data-act="adm-invite" ${ADM.inviting ? "disabled" : ""}>שלח הזמנה</button></div>
-      <div class="muted small">המתאמן יקבל אימייל עם קישור לאפליקציה, ויאשר את השם ויבחר סיסמה בכניסה הראשונה. רק מי שהוזמן יכול להיכנס.</div>
+      <div class="row wrap"><span class="muted small">יקבל גישה ל:</span>
+        <label class="check"><input type="checkbox" id="inv-food" ${ADM.invFood === false ? "" : "checked"}><span>תזונה</span></label>
+        <label class="check"><input type="checkbox" id="inv-train" ${(ADM.invTrain ?? INVITE_TRAIN_DEFAULT) ? "checked" : ""}><span>אימונים</span></label></div>
+      <div class="muted small">המתאמן יקבל אימייל עם קישור לאפליקציה, ויאשר את השם ויבחר סיסמה בכניסה הראשונה. רק מי שהוזמן יכול להיכנס. אפשר לשנות את הגישה אחר כך בדף שלו.</div>
     </section>
     <section class="card">${list.map(row).join("") || `<div class="muted">עוד אין מתאמנים פעילים. הזמן מתאמן כדי להתחיל.</div>`}</section>
     ${dis.length ? `<button class="btn ghost" data-act="adm-showdis">${ADM.showDisabled ? "הסתר" : "הצג"} משתמשים מושבתים (${dis.length})</button>${ADM.showDisabled ? `<section class="card">${dis.map(row).join("")}</section>` : ""}` : ""}
@@ -1983,7 +2057,7 @@ views.admin = () => {
 
 /* ============ events ============ */
 const ACT = {
-  "tab": el => { S.tab = el.dataset.tab; closeSheet(); render(); window.scrollTo(0, 0); },
+  "tab": el => { S.tab = el.dataset.tab; if (TR.mode !== "home" && !(TR.mode === "edit" && TR.ctx !== "self" && S.tab === "admin")) { TR.mode = "home"; TR.draft = null; TR.w = null; } closeSheet(); render(); window.scrollTo(0, 0); },
   "day-shift": el => { const tk = todayKey(); const k = shiftKey(S.day || tk, +el.dataset.n); S.day = k >= tk ? null : k; S.q = ""; render(); },
   "open-day": el => { S.day = el.dataset.k === todayKey() ? null : el.dataset.k; S.tab = "today"; render(); window.scrollTo(0,0); },
   "q-go": () => goQuery(),
@@ -2030,8 +2104,8 @@ const ACT = {
   "logout": () => Auth.signOut(),
   "auth-mode": el => { const em = $("#au-email"); if (em) AUTHV.email = em.value; AUTHV.mode = el.dataset.m; AUTHV.err = ""; renderAuth(); },
   "auth-go": () => authSubmit(),
-  "adm-user": el => adminOpen(el.dataset.id),
-  "adm-back": () => { ADM.sel = null; render(); },
+  "adm-user": el => { TR.mode = "home"; TR.draft = null; adminOpen(el.dataset.id); window.scrollTo(0, 0); },
+  "adm-back": () => { ADM.sel = null; TR.mode = "home"; TR.draft = null; render(); },
   "adm-test": el => adminSetTest(el.dataset.id, el.dataset.v === "1"),
   "adm-invite": () => adminInvite(),
   "my-name-save": () => saveMyName(),
@@ -2097,6 +2171,424 @@ document.addEventListener("keydown", e => {
   if (e.key === "Escape" && $("#sheet-wrap").classList.contains("open")) closeSheet();
 });
 let rT; window.addEventListener("resize", () => { clearTimeout(rT); rT = setTimeout(() => { if (S.tab === "history") render(); }, 150); });
+
+/* ============ training: programs, workouts, progress, kudos ============ */
+/* Docs (same per-user storage as the food log):
+   program-<id>  {kind:"program", name, split:"AB"|"ABC"|"FB", status:"current"|"past", days:[{key,title,ex:[{id,name,sets,reps,notes,lib,yt}]}], by:"coach"|"self", changes:[{at,by,text}], createdAt}
+   workout-<date>-<id> {kind:"workout", date, programId, programName, dayKey, dayTitle, entries:[{exId,name,sets,reps,lib,weight,note}], at}
+   kudos-<workoutId> {kind:"kudos", workoutId, text, at}   (written by the coach) */
+const INVITE_TRAIN_DEFAULT = false; // live: training hidden for now (owner, 26 Nov 2026). Sandbox build sets this to true.
+const SPLITS = {AB:{label:"A/B", keys:["A","B"]}, ABC:{label:"A/B/C", keys:["A","B","C"]}, FB:{label:"גוף מלא", keys:["F"]}};
+const dayName = (p, d) => (p.split === "FB" ? "גוף מלא" : "אימון " + d.key) + (d.title ? " · " + d.title : "");
+const EXIMG = "https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/";
+const MODS = () => { const p = Auth.profile || {}; const m = {food: p.food_enabled !== false, train: p.workouts_enabled !== false};
+  if (Auth.isAdmin && !m.food && !m.train) m.food = true; // the coach always keeps at least the food section
+  return m; };
+const TAB_MOD = {today:"food", saved:"food", history:"food", train:"train"};
+/* Two sections, picked at the top: תזונה (food, default) and תוכנית אימון (training).
+   The bottom tabs show only the chosen section's tabs, plus מתאמנים (coach) and הגדרות. */
+function applyModules(){
+  const m = MODS();
+  if (!m[S.sec]) S.sec = m.food ? "food" : m.train ? "train" : S.sec;
+  const bar = $("#secbar"); if (bar) { bar.hidden = !(m.food && m.train);
+    bar.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.s === S.sec))); }
+  document.querySelectorAll("nav.tabs button[data-tab]").forEach(b => { const need = TAB_MOD[b.dataset.tab]; if (need) b.style.display = need === S.sec && m[need] ? "" : "none"; });
+  const need = TAB_MOD[S.tab];
+  if (!m.food && !m.train) { if (need) S.tab = "nomods"; return; }
+  if (need && need !== S.sec) S.tab = S.sec === "food" ? "today" : "train";
+}
+views.nomods = () => `<div class="card stack"><h2>אין אזורים פעילים</h2><div class="muted">המאמן שלך עוד לא פתח לך את התזונה או את האימונים. פנה אליו כדי לקבל גישה.</div></div>`;
+
+/* exercise library (public domain, github.com/yuhonas/free-exercise-db): [id, english, hebrew, muscle, img0, img1] */
+const EXL = {list:null, loading:null};
+function exLoad(){
+  if (EXL.list || EXL.loading) return EXL.loading;
+  EXL.loading = fetch("exercises.json").then(r => r.json()).then(j => { EXL.list = j; EXL.byId = Object.fromEntries(j.map(e => [e[0], e])); }).catch(() => { EXL.list = []; EXL.byId = {}; }).finally(() => { EXL.loading = null; if (EXS) renderExSheet(); });
+  return EXL.loading;
+}
+function exSearch(q){
+  q = norm(q || ""); if (!q || !EXL.list) return [];
+  const words = q.split(/\s+/).filter(Boolean); const out = [];
+  for (const e of EXL.list) {
+    const he = norm(e[2]), en = norm(e[1]);
+    const hay = he + " " + en;
+    if (!words.every(w => hay.includes(w))) continue;
+    out.push([(he.startsWith(q) || en.startsWith(q)) ? 0 : he ? 1 : 2, e]);
+    if (out.length > 300) break;
+  }
+  return out.sort((a, b) => a[0] - b[0]).slice(0, 12).map(x => x[1]);
+}
+function demoHTML(lib, big){
+  const e = EXL.byId && EXL.byId[lib]; const f0 = e ? e[4] : lib + "/0.jpg", f1 = e ? e[5] : lib + "/1.jpg";
+  return `<div class="demo${big ? " big" : ""}" aria-label="הדגמה של התרגיל"><img src="${esc(EXIMG + f0)}" alt="תנוחת התחלה" loading="lazy">${f1 ? `<img src="${esc(EXIMG + f1)}" alt="תנוחת סיום" loading="lazy">` : ""}</div>`;
+}
+const ytOk = u => /^https:\/\/(www\.|m\.)?(youtube\.com|youtu\.be)\//i.test(String(u || "").trim());
+const ytLink = u => ytOk(u) ? `<a class="btn ghost" href="${esc(u.trim())}" target="_blank" rel="noopener">סרטון ביוטיוב ↗</a>` : "";
+
+/* ---- reading a trainee's training docs (mine, or the selected trainee's for the coach) ---- */
+const trDocs = ctx => ctx === "self" ? Store.docs : (ADM.data || {});
+const trList = (ctx, kind) => Object.entries(trDocs(ctx)).filter(([, v]) => v && v.kind === kind).map(([id, v]) => ({id, ...v}));
+const programsOf = ctx => trList(ctx, "program").sort((a, b) => (a.status === "current" ? -1 : 0) - (b.status === "current" ? -1 : 0) || (b.createdAt || 0) - (a.createdAt || 0));
+const workoutsOf = ctx => trList(ctx, "workout").sort((a, b) => b.date.localeCompare(a.date) || (b.at || 0) - (a.at || 0));
+const kudosFor = (ctx, wid) => trDocs(ctx)["kudos-" + wid] || null;
+function lastFor(ctx, ex, beforeId){
+  for (const w of workoutsOf(ctx)) { if (w.id === beforeId) continue;
+    const e = (w.entries || []).find(x => (ex.lib && x.lib === ex.lib) || norm(x.name) === norm(ex.name));
+    if (e && e.weight != null && e.weight !== "") return {w, e}; }
+  return null;
+}
+function progressSeries(ctx, key){
+  const pts = [];
+  workoutsOf(ctx).slice().reverse().forEach(w => (w.entries || []).forEach(e => { if (exKey(e) === key && e.weight != null && e.weight !== "") pts.push({date: w.date, v: +e.weight}); }));
+  return pts;
+}
+const exKey = e => e.lib ? "lib:" + e.lib : "n:" + norm(e.name);
+function progressOptions(ctx){
+  const seen = new Map();
+  workoutsOf(ctx).forEach(w => (w.entries || []).forEach(e => { if (e.weight != null && e.weight !== "" && !seen.has(exKey(e))) seen.set(exKey(e), e.name); }));
+  return [...seen.entries()];
+}
+
+/* ---- saving (self → my Store; coach → the trainee's docs directly) ---- */
+async function trPut(ctx, id, data){
+  if (ctx === "self") return Store.put(id, data);
+  data = {...data, updatedAt: Date.now()};
+  ADM.data = {...(ADM.data || {}), [id]: data}; render();
+  const { error } = await SB.from("docs").upsert({user_id: ctx, id, data, updated_at: new Date().toISOString()});
+  if (error) { console.error(error); toast("השינוי לא נשמר. נסה שוב."); }
+}
+async function trDel(ctx, id){
+  if (ctx === "self") return Store.del(id);
+  const d = {...(ADM.data || {})}; delete d[id]; ADM.data = d; render();
+  const { error } = await SB.from("docs").delete().eq("user_id", ctx).eq("id", id);
+  if (error) { console.error(error); toast("המחיקה לא נשמרה. נסה שוב."); }
+}
+async function setCurrent(ctx, pid){
+  const by = ctx === "self" ? "self" : "coach";
+  for (const p of programsOf(ctx)) {
+    const want = p.id === pid ? "current" : (p.status === "current" ? "past" : p.status);
+    if (want !== p.status) { const {id, ...data} = p; await trPut(ctx, id, {...data, status: want, changes: logChange(p, by, want === "current" ? "הוגדרה כתוכנית הנוכחית" : "הועברה למצב לא פעיל")}); }
+  }
+}
+function logChange(p, by, text){ const c = (p.changes || []).slice(-49); c.push({at: Date.now(), by, text}); return c; }
+function diffProgram(a, b){
+  const out = []; if (a.name !== b.name) out.push(`שם: ״${a.name}״ ← ״${b.name}״`);
+  if (a.split !== b.split) out.push(`חלוקה: ${SPLITS[a.split].label} ← ${SPLITS[b.split].label}`);
+  b.days.forEach(d => { const od = (a.days || []).find(x => x.key === d.key) || {ex: []}; const dn = dayName(b, d).split(" · ")[0];
+    d.ex.forEach(e => { const o = od.ex.find(x => x.id === e.id);
+      if (!o) out.push(`${dn}: נוסף ${e.name}`);
+      else { const ch = []; if (o.name !== e.name) ch.push(`שם ״${o.name}״ ← ״${e.name}״`); if (String(o.sets) !== String(e.sets) || String(o.reps) !== String(e.reps)) ch.push(`${o.sets}×${o.reps} ← ${e.sets}×${e.reps}`); if ((o.notes || "") !== (e.notes || "")) ch.push("הערות"); if (o.lib !== e.lib || (o.yt || "") !== (e.yt || "")) ch.push("הדגמה");
+        if (ch.length) out.push(`${dn}: ${e.name} (${ch.join(", ")})`); } });
+    od.ex.forEach(o => { if (!d.ex.find(x => x.id === o.id)) out.push(`${dn}: הוסר ${o.name}`); }); });
+  return out;
+}
+
+/* ---- state for the training screens ---- */
+const TR = {mode:"home", ctx:"self", draft:null, orig:null, w:null, prog:null};
+function trOpenEditor(ctx, pid){
+  const p = pid ? trDocs(ctx)[pid] : null;
+  TR.ctx = ctx; TR.orig = p ? {id: pid, ...structuredClone(p)} : null;
+  TR.draft = p ? {id: pid, ...structuredClone(p)} : {id: "program-" + rid(), kind:"program", name:"", split:"AB", status: programsOf(ctx).some(x => x.status === "current") ? "past" : "current",
+    days: SPLITS.AB.keys.map(k => ({key:k, title:"", ex:[]})), by: ctx === "self" ? "self" : "coach", changes: [], createdAt: Date.now(), isNew: true};
+  if (!p) TR.draft.status = "current";
+  TR.mode = "edit"; render(); window.scrollTo(0, 0);
+}
+function trSetSplit(split){
+  const d = TR.draft; const keys = SPLITS[split].keys;
+  const all = d.days.flatMap(x => x.ex);
+  if (split === "FB") d.days = [{key:"F", title: "", ex: all}];
+  else { const next = keys.map(k => d.days.find(x => x.key === k) || {key:k, title:"", ex:[]});
+    const kept = new Set(next.flatMap(x => x.ex.map(e => e.id))); const lost = all.filter(e => !kept.has(e.id));
+    if (lost.length) next[next.length - 1].ex.push(...lost);
+    d.days = next; }
+  d.split = split; render();
+}
+async function trSaveProgram(){
+  const d = TR.draft; const ctx = TR.ctx; const by = ctx === "self" ? "self" : "coach";
+  d.name = (d.name || "").trim();
+  if (!d.name) { toast("תן שם לתוכנית."); return; }
+  if (!d.days.some(x => x.ex.length)) { toast("הוסף לפחות תרגיל אחד."); return; }
+  const {id, isNew, ...data} = d;
+  if (isNew) data.changes = logChange(data, by, by === "coach" ? "המאמן יצר את התוכנית" : "התוכנית נוצרה");
+  else { const diff = diffProgram(TR.orig, d); if (diff.length) data.changes = logChange(data, by, diff.join(" · ")); }
+  if (data.status === "current") for (const p of programsOf(ctx)) if (p.id !== id && p.status === "current") { const {id: pid, ...pd} = p; await trPut(ctx, pid, {...pd, status:"past", changes: logChange(p, by, "הועברה למצב לא פעיל")}); }
+  await trPut(ctx, id, data);
+  toast("התוכנית נשמרה."); TR.mode = "home"; TR.draft = null; render();
+}
+
+/* ---- exercise sheet: name, sets, reps, notes, demo (library + YouTube) ---- */
+let EXS = null;
+function openExSheet(dayKey, exId){
+  const day = TR.draft.days.find(x => x.key === dayKey); const e = exId ? day.ex.find(x => x.id === exId) : null;
+  EXS = {dayKey, exId, name: e ? e.name : "", sets: e ? e.sets : 3, reps: e ? e.reps : "10", notes: e ? e.notes || "" : "", lib: e ? e.lib || null : null, yt: e ? e.yt || "" : "", q: e ? "" : "", preview: null};
+  exLoad(); renderExSheet();
+}
+function renderExSheet(){
+  if (!EXS) return;
+  const res = EXS.preview ? [] : exSearch(EXS.q || EXS.name);
+  const pv = EXS.preview && EXL.byId ? EXL.byId[EXS.preview] : null;
+  const cur = EXS.lib && EXL.byId ? EXL.byId[EXS.lib] : null;
+  openSheet(`<div class="sheet-head"><h2>${EXS.exId ? "עריכת תרגיל" : "תרגיל חדש"}</h2>${CLOSE_BTN}</div>
+    ${pv ? `<div class="stack">
+        ${demoHTML(pv[0], true)}
+        <div><b dir="auto">${esc(pv[2] || pv[1])}</b>${pv[2] ? `<div class="muted small" dir="ltr">${esc(pv[1])}</div>` : ""}${pv[3] ? `<div class="muted small">שריר עיקרי: ${esc(pv[3])}</div>` : ""}</div>
+        <div class="note">זה התרגיל הנכון? ההדגמה נשמרת רק אחרי שתאשר.</div>
+        <div class="actions"><button class="btn" data-act="ex-pv-no">לא, חזרה</button><button class="btn primary" data-act="ex-pv-yes">כן, זה התרגיל</button></div>
+      </div>`
+    : `<div class="stack">
+      <label class="field">שם התרגיל<input id="ex-name" type="text" dir="auto" maxlength="80" placeholder="לדוגמה: סקוואט, לחיצת חזה" value="${esc(EXS.name)}"></label>
+      <div class="grid2"><label class="field">סטים<input id="ex-sets" inputmode="numeric" value="${esc(EXS.sets)}"></label><label class="field">חזרות<input id="ex-reps" type="text" dir="ltr" placeholder="8-10" value="${esc(EXS.reps)}"></label></div>
+      <label class="field">הערות מיוחדות (לא חובה)<input id="ex-notes" type="text" dir="auto" maxlength="160" placeholder="לדוגמה: ירידה איטית, עצירה למטה" value="${esc(EXS.notes)}"></label>
+      <div class="sect-label">הדגמה</div>
+      ${cur ? `<div class="row">${demoHTML(cur[0])}<div class="grow"><b dir="auto">${esc(cur[2] || cur[1])}</b><div class="muted small">הדגמה מהמאגר</div></div><button class="btn ghost" data-act="ex-lib-clear">הסר</button></div>`
+        : `<div id="ex-results" class="stack">${exResultsHTML(res)}</div>`}
+      <label class="field">קישור לסרטון ביוטיוב (לא חובה)<input id="ex-yt" type="url" dir="ltr" placeholder="https://youtube.com/..." value="${esc(EXS.yt)}"></label>
+      <div class="actions">${EXS.exId ? `<button class="btn ghost danger" data-act="ex-del">הסר תרגיל</button>` : `<button class="btn" data-act="close-sheet">ביטול</button>`}<button class="btn primary" data-act="ex-save">שמור תרגיל</button></div>
+    </div>`}`);
+  sheetCleanup = () => { EXS = null; };
+}
+function exResultsHTML(res){
+  if (!EXL.list) return `<div class="thinking"><span class="spin"></span>טוען את מאגר התרגילים…</div>`;
+  if (!(EXS.q || EXS.name).trim()) return `<div class="muted small">כתוב שם תרגיל כדי למצוא הדגמה במאגר. אפשר גם לכתוב באנגלית.</div>`;
+  if (!res.length) return `<div class="muted small">לא נמצאה הדגמה בשם הזה. נסה שם אחר או באנגלית, או הוסף קישור ליוטיוב.</div>`;
+  return `<div class="muted small">בחר הדגמה מתאימה:</div><div class="exres">${res.map(e => `<button class="exhit" data-act="ex-pv" data-id="${esc(e[0])}"><img src="${esc(EXIMG + e[4])}" alt="" loading="lazy"><span><b dir="auto">${esc(e[2] || e[1])}</b>${e[2] ? `<span class="muted small" dir="ltr">${esc(e[1])}</span>` : ""}</span></button>`).join("")}</div>`;
+}
+function exReadFields(){
+  const v = id => (($("#" + id) || {}).value ?? "");
+  if ($("#ex-name")) { EXS.name = v("ex-name"); EXS.sets = v("ex-sets"); EXS.reps = v("ex-reps"); EXS.notes = v("ex-notes"); EXS.yt = v("ex-yt"); }
+}
+function exSave(){
+  exReadFields();
+  const name = EXS.name.trim(); const sets = Math.round(parseNum(EXS.sets)); const reps = String(EXS.reps || "").trim();
+  if (!name) { toast("כתוב שם לתרגיל."); return; }
+  if (!(sets > 0 && sets < 20)) { toast("כמה סטים? הכנס מספר."); return; }
+  if (!reps) { toast("כמה חזרות? לדוגמה 10 או 8-12."); return; }
+  if (EXS.yt.trim() && !ytOk(EXS.yt)) { toast("הקישור צריך להיות לסרטון ביוטיוב."); return; }
+  const day = TR.draft.days.find(x => x.key === EXS.dayKey);
+  const ex = {id: EXS.exId || "x" + rid(), name, sets, reps, notes: EXS.notes.trim(), lib: EXS.lib || null, yt: EXS.yt.trim()};
+  const i = day.ex.findIndex(x => x.id === ex.id); if (i >= 0) day.ex[i] = ex; else day.ex.push(ex);
+  sheetCleanup = null; EXS = null; closeSheet(); render();
+}
+
+/* ---- logging a workout ---- */
+function trStartWorkout(pid, dayKey, wid){
+  const ctx = "self";
+  if (wid) { const w = Store.get(wid); TR.w = {id: wid, ...w}; }
+  else { const p = Store.docs[pid]; const d = p.days.find(x => x.key === dayKey);
+    TR.w = {id: "workout-" + baseKey() + "-" + rid(), kind:"workout", date: baseKey(), programId: pid, programName: p.name, dayKey, dayTitle: dayName(p, d), at: Date.now(), isNew: true,
+      entries: d.ex.map(e => ({exId: e.id, name: e.name, sets: e.sets, reps: e.reps, notes: e.notes || "", lib: e.lib || null, yt: e.yt || "", weight: null, note: ""}))}; }
+  TR.mode = "log"; exLoad(); render(); window.scrollTo(0, 0);
+}
+function trSaveWorkout(){
+  const w = TR.w;
+  document.querySelectorAll("[data-wkg]").forEach(el => { const v = parseNum(el.value); w.entries[+el.dataset.wkg].weight = isFinite(v) && v >= 0 ? Math.round(v * 100) / 100 : null; });
+  document.querySelectorAll("[data-wnote]").forEach(el => { w.entries[+el.dataset.wnote].note = el.value.trim().slice(0, 200); });
+  document.querySelectorAll("[data-wdone]").forEach(el => { w.entries[+el.dataset.wdone].done = el.checked; });
+  const dEl = $("#w-date"); if (dEl && /^\d{4}-\d{2}-\d{2}$/.test(dEl.value)) w.date = dEl.value;
+  const {id, isNew, ...data} = w;
+  Store.put(id, data); toast(isNew ? "האימון נשמר. כל הכבוד!" : "האימון עודכן."); TR.mode = "home"; TR.w = null; render(); window.scrollTo(0, 0);
+}
+
+/* ---- small chart: weight per workout for one exercise ---- */
+function progressChart(pts){
+  if (!pts.length) return `<div class="muted small">עוד אין משקלים רשומים לתרגיל הזה.</div>`;
+  const W = 320, H = 150, pl = 36, pr = 10, pt = 12, pb = 22;
+  let lo = Math.min(...pts.map(p => p.v)), hi = Math.max(...pts.map(p => p.v)); if (hi - lo < 2) { lo -= 1; hi += 1; }
+  const x = i => pts.length === 1 ? (pl + W - pr) / 2 : pl + i * (W - pl - pr) / (pts.length - 1);
+  const y = v => pt + (hi - v) / (hi - lo) * (H - pt - pb);
+  const line = pts.map((p, i) => (i ? "L" : "M") + x(i).toFixed(1) + "," + y(p.v).toFixed(1)).join("");
+  const first = pts[0].v, last = pts[pts.length - 1].v, diff = Math.round((last - first) * 10) / 10;
+  return `<div class="chart-wrap"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="משקל לאורך זמן">
+    ${[lo, (lo + hi) / 2, hi].map(v => `<line x1="${pl}" x2="${W - pr}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-dasharray="2 3"/><text x="${pl - 5}" y="${y(v) + 4}" text-anchor="end" font-size="10" fill="var(--muted)">${g1(v)}</text>`).join("")}
+    <path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+    ${pts.map((p, i) => `<circle cx="${x(i)}" cy="${y(p.v)}" r="3.5" fill="var(--accent)" stroke="var(--surface)" stroke-width="1.5"><title>${esc(niceDate(p.date))}: ${g1(p.v)} ק״ג</title></circle>`).join("")}
+    <text x="${x(0)}" y="${H - 5}" text-anchor="start" font-size="10" fill="var(--muted)">${esc(parseKey(pts[0].date).toLocaleDateString("he-IL", {day:"numeric", month:"numeric"}))}</text>
+    ${pts.length > 1 ? `<text x="${x(pts.length - 1)}" y="${H - 5}" text-anchor="end" font-size="10" fill="var(--muted)">${esc(parseKey(pts[pts.length - 1].date).toLocaleDateString("he-IL", {day:"numeric", month:"numeric"}))}</text>` : ""}
+  </svg></div>
+  <div class="small">${pts.length} אימונים · ${g1(first)} ← ${g1(last)} ק״ג${pts.length > 1 ? ` (<b style="color:var(--${diff >= 0 ? "deficit" : "surplus"})">${diff > 0 ? "+" : diff < 0 ? "−" : ""}${g1(Math.abs(diff))} ק״ג</b>)` : ""}</div>`;
+}
+
+/* ---- shared pieces ---- */
+function programCard(ctx, p, compact){
+  const isCoach = ctx !== "self";
+  return `<div class="prog${p.status === "current" ? "" : " off"}">
+    <div class="row between"><div><b dir="auto">${esc(p.name)}</b> <span class="tag">${esc(SPLITS[p.split].label)}</span>${p.by === "coach" ? '<span class="tag plan">מהמאמן</span>' : ""}${p.status === "current" ? '<span class="tag on">פעילה</span>' : '<span class="tag">לא פעילה</span>'}</div></div>
+    ${p.days.map(d => `<div class="pday"><div class="row between"><b class="small">${esc(dayName(p, d))}</b>${!isCoach && p.status === "current" && d.ex.length ? `<button class="btn primary sm" data-act="w-start" data-p="${esc(p.id)}" data-d="${esc(d.key)}">התחל אימון</button>` : ""}</div>
+      ${compact ? `<div class="muted small">${d.ex.map(e => esc(e.name)).join(" · ") || "אין תרגילים"}</div>` : d.ex.map(e => `<div class="exline"><span dir="auto">${esc(e.name)}</span><span class="num muted">${esc(e.sets)}×${esc(e.reps)}</span></div>${e.notes ? `<div class="muted small exnote" dir="auto">${esc(e.notes)}</div>` : ""}`).join("")}</div>`).join("")}
+    <div class="row wrap">
+      <button class="btn sm" data-act="p-edit" data-ctx="${esc(ctx)}" data-p="${esc(p.id)}">ערוך</button>
+      ${p.status === "current" ? `<button class="btn ghost sm" data-act="p-past" data-ctx="${esc(ctx)}" data-p="${esc(p.id)}">העבר תוכנית למצב לא פעיל</button>` : `<button class="btn primary sm" data-act="p-current" data-ctx="${esc(ctx)}" data-p="${esc(p.id)}">הגדר כתוכנית פעילה</button>`}
+      ${(isCoach || p.by !== "coach") && p.status !== "current" ? `<button class="btn ghost danger sm" data-act="p-del" data-ctx="${esc(ctx)}" data-p="${esc(p.id)}">מחק</button>` : ""}
+    </div>
+  </div>`;
+}
+function workoutRow(ctx, w){
+  const k = kudosFor(ctx, w.id); const ents = w.entries || [];
+  const withW = ents.filter(e => e.weight != null).length, done = ents.filter(e => e.done).length;
+  const summary = [done ? `${done}/${ents.length} בוצעו` : "", withW ? `${withW} עם משקל` : ""].filter(Boolean).join(" · ") || `${ents.length} תרגילים`;
+  return `<div class="wrow">
+    <button class="main" ${ctx === "self" ? `data-act="w-open" data-w="${esc(w.id)}"` : `data-act="w-toggle" data-w="${esc(w.id)}"`}>
+      <b>${esc(niceDate(w.date))}</b> · <span dir="auto">${esc(w.dayTitle || "")}</span>
+      <div class="muted small" dir="auto">${esc(w.programName || "")} · ${summary}</div>
+      ${k ? `<div class="kudos">כל הכבוד מהמאמן${k.text ? `: <span dir="auto">${esc(k.text)}</span>` : ""}</div>` : ""}
+    </button>
+    ${ctx === "self" ? `<button class="icon-btn" data-act="w-del-row" data-w="${esc(w.id)}" aria-label="מחק את האימון מ־${esc(niceDate(w.date))}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13M10 11v5M14 11v5"/></svg></button>` : ""}
+    ${ctx !== "self" ? (k ? `<button class="btn ghost sm" data-act="k-del" data-w="${esc(w.id)}">בטל כל הכבוד</button>` : `<button class="btn sm" data-act="k-give" data-w="${esc(w.id)}">כל הכבוד</button>`) : ""}
+  </div>
+  ${ctx !== "self" && TR.open === w.id ? `<div class="wdetail">${(w.entries || []).map(e => `<div class="exline"><span dir="auto">${e.done ? '<b class="ok" aria-label="בוצע">✓</b> ' : ""}${esc(e.name)}</span><span class="num">${e.weight != null ? g1(e.weight) + " ק״ג" : "–"}</span></div>${e.note ? `<div class="muted small exnote" dir="auto">${esc(e.note)}</div>` : ""}`).join("")}</div>` : ""}`;
+}
+/* recent workouts: more than 3 → a scrolling box about 3 rows tall */
+function wlistHTML(ctx, list){
+  const rows = list.map(w => workoutRow(ctx, w)).join("");
+  if (list.length <= 3) return rows;
+  return `<div class="wlist" id="wlist-${esc(ctx)}" tabindex="0" aria-label="רשימת אימונים, גלול לעוד">${rows}</div><div class="muted small wmore">${list.length} אימונים · גלול לעוד</div>`;
+}
+function progressCard(ctx){
+  const opts = progressOptions(ctx); if (!opts.length) return "";
+  const key = (TR.prog && TR.prog[ctx] && opts.some(o => o[0] === TR.prog[ctx])) ? TR.prog[ctx] : opts[0][0];
+  return `<section class="card stack" aria-label="התקדמות">
+    <h3>התקדמות במשקל</h3>
+    <select id="tr-prog" data-ctx="${esc(ctx)}" aria-label="בחר תרגיל">${opts.map(([k, n]) => `<option value="${esc(k)}" ${k === key ? "selected" : ""}>${esc(n)}</option>`).join("")}</select>
+    ${progressChart(progressSeries(ctx, key))}
+  </section>`;
+}
+
+/* ---- screens ---- */
+function editorView(){
+  const d = TR.draft; const coachFor = TR.ctx !== "self" ? ((ADM.users || []).find(u => u.id === TR.ctx) || {}) : null;
+  return `<div class="row between"><h2>${d.isNew ? "תוכנית חדשה" : "עריכת תוכנית"}</h2><button class="btn" data-act="p-cancel">ביטול</button></div>
+    ${coachFor ? `<div class="note">בונה תוכנית עבור <b dir="auto">${esc(coachFor.display_name || coachFor.email || "")}</b>. היא תופיע אצלו מיד.</div>` : ""}
+    ${!d.isNew && d.by === "coach" && TR.ctx === "self" ? `<div class="note">את התוכנית הזו בנה המאמן שלך. אפשר לשנות אותה, והמאמן יראה מה שינית.</div>` : ""}
+    <section class="card stack">
+      <label class="field">שם התוכנית<input id="p-name" type="text" dir="auto" maxlength="60" placeholder="לדוגמה: חיטוב חורף" value="${esc(d.name)}"></label>
+      <div><div class="sect-label">חלוקה</div><div class="seg" role="group" aria-label="חלוקה">${Object.entries(SPLITS).map(([k, s]) => `<button data-act="p-split" data-s="${k}" aria-pressed="${d.split === k}">${esc(s.label)}</button>`).join("")}</div></div>
+      <label class="check"><input type="checkbox" id="p-current" ${d.status === "current" ? "checked" : ""}><span>זו התוכנית הנוכחית<div class="muted small">רק תוכנית אחת יכולה להיות פעילה. הקודמת תעבור למצב לא פעיל.</div></span></label>
+    </section>
+    ${d.days.map(day => `<section class="card stack" aria-label="${esc(dayName(d, day))}">
+      <div class="row between"><h3>${d.split === "FB" ? "גוף מלא" : "אימון " + esc(day.key)}</h3></div>
+      ${d.split === "FB" ? "" : `<input type="text" dir="auto" maxlength="40" data-dtitle="${esc(day.key)}" placeholder="כותרת (לא חובה), לדוגמה: חזה וכתפיים" value="${esc(day.title || "")}">`}
+      <div class="items">${day.ex.map((e, i) => `<div class="exrow">
+        <button class="main" data-act="ex-edit" data-d="${esc(day.key)}" data-x="${esc(e.id)}"><b dir="auto">${esc(e.name)}</b><div class="muted small"><span class="num">${esc(e.sets)} סטים × ${esc(e.reps)} חזרות</span>${e.lib ? " · הדגמה" : ""}${e.yt ? " · יוטיוב" : ""}${e.notes ? ` · <span dir="auto">${esc(e.notes)}</span>` : ""}</div></button>
+        <button class="icon-btn" data-act="ex-move" data-d="${esc(day.key)}" data-x="${esc(e.id)}" data-n="-1" aria-label="הזז למעלה" ${i ? "" : "disabled"}>▲</button>
+        <button class="icon-btn" data-act="ex-move" data-d="${esc(day.key)}" data-x="${esc(e.id)}" data-n="1" aria-label="הזז למטה" ${i < day.ex.length - 1 ? "" : "disabled"}>▼</button>
+      </div>`).join("") || `<div class="muted small">עוד אין תרגילים.</div>`}</div>
+      <button class="btn" data-act="ex-add" data-d="${esc(day.key)}">+ הוסף תרגיל</button>
+    </section>`).join("")}
+    <button class="btn primary block" data-act="p-save">שמור תוכנית</button>`;
+}
+function logView(){
+  const w = TR.w;
+  return `<div class="row between"><div><h2 dir="auto">${esc(w.dayTitle)}</h2><div class="muted small" dir="auto">${esc(w.programName)}</div></div><button class="btn" data-act="w-cancel">ביטול</button></div>
+    <label class="field">תאריך<input id="w-date" type="date" dir="ltr" value="${esc(w.date)}" max="${esc(baseKey())}"></label>
+    ${w.entries.map((e, i) => { const last = lastFor("self", e, w.id);
+      return `<section class="card stack wex">
+        <div class="row between"><b dir="auto">${esc(e.name)}</b><span class="tag num">${esc(e.sets)}×${esc(e.reps)}</span></div>
+        <label class="check done-check"><input type="checkbox" data-wdone="${i}" ${e.done ? "checked" : ""}><span>בוצע</span></label>
+        ${e.notes ? `<div class="note" dir="auto">${esc(e.notes)}</div>` : ""}
+        ${e.lib || ytOk(e.yt) ? `<details><summary class="small">איך עושים את זה</summary><div class="stack" style="margin-top:8px">${e.lib ? demoHTML(e.lib, true) : ""}${ytLink(e.yt)}</div></details>` : ""}
+        <div class="row"><label class="field grow">משקל בק״ג (לא חובה)<input data-wkg="${i}" inputmode="decimal" dir="ltr" value="${e.weight != null ? esc(e.weight) : ""}" placeholder="${last ? esc(last.e.weight) : ""}"></label>
+          <div class="last small">${last ? `בפעם הקודמת<br><b class="num">${g1(last.e.weight)} ק״ג</b><br><span class="muted">${esc(niceDate(last.w.date))}</span>` : `<span class="muted">פעם ראשונה</span>`}</div></div>
+        <input type="text" dir="auto" maxlength="200" data-wnote="${i}" placeholder="הערה לאימון (לא חובה)" value="${esc(e.note || "")}">
+      </section>`; }).join("")}
+    <button class="btn primary block" data-act="w-save">שמור אימון</button>
+    ${!w.isNew ? `<button class="btn ghost danger" data-act="w-del">מחק את האימון</button>` : ""}`;
+}
+views.train = () => {
+  if (!Store.loaded) return `<div class="empty">טוען…</div>`;
+  if (TR.mode === "edit" && TR.draft && TR.ctx === "self") return editorView();
+  if (TR.mode === "log" && TR.w) return logView();
+  const progs = programsOf("self"); const cur = progs.find(p => p.status === "current"); const past = progs.filter(p => p.status !== "current");
+  const ws = workoutsOf("self");
+  const recentK = ws.slice(0, 10).map(w => [w, kudosFor("self", w.id)]).filter(([, k]) => k && Date.now() - (k.at || 0) < 7 * 864e5);
+  const weekStart = shiftKey(baseKey(), -parseKey(baseKey()).getDay());
+  const thisWeek = ws.filter(w => w.date >= weekStart).length;
+  return `<div class="row between"><h2>אימונים</h2><button class="btn" data-act="p-new" data-ctx="self">+ תוכנית</button></div>
+    ${recentK.map(([w, k]) => `<div class="kudos-banner">המאמן נתן לך כל הכבוד על ${esc(w.dayTitle)} (${esc(niceDate(w.date))})${k.text ? `: <span dir="auto">${esc(k.text)}</span>` : ""}</div>`).join("")}
+    <div class="tiles"><div class="tile"><b class="num">${thisWeek}</b><span>אימונים השבוע</span></div><div class="tile"><b class="num">${ws.length}</b><span>אימונים בסך הכול</span></div><div class="tile"><b class="num">${ws[0] ? esc(parseKey(ws[0].date).toLocaleDateString("he-IL", {day:"numeric", month:"numeric"})) : "–"}</b><span>אימון אחרון</span></div></div>
+    <section class="card stack" aria-label="התוכנית הנוכחית"><h3>התוכנית הנוכחית</h3>
+      ${cur ? programCard("self", cur) : `<div class="muted">עוד אין תוכנית נוכחית. צור תוכנית חדשה, או בקש מהמאמן שלך לבנות לך אחת.</div><button class="btn primary" data-act="p-new" data-ctx="self">צור תוכנית</button>`}
+    </section>
+    ${progressCard("self")}
+    <section class="card" aria-label="אימונים אחרונים"><h3>אימונים אחרונים</h3>${ws.length ? wlistHTML("self", ws.slice(0, 30)) : `<div class="muted small">עוד לא רשמת אימונים. לחץ ״התחל אימון״ בתוכנית הנוכחית.</div>`}</section>
+    ${past.length ? `<section class="card stack" aria-label="תוכניות לא פעילות"><h3>תוכניות לא פעילות (${past.length})</h3>${past.map(p => programCard("self", p, true)).join("")}</section>` : ""}`;
+};
+
+/* ---- coach: training section inside a trainee's page ---- */
+function adminTrainingHTML(u){
+  if (TR.mode === "edit" && TR.draft && TR.ctx === u.id) return null;
+  const ctx = u.id; const progs = programsOf(ctx); const cur = progs.find(p => p.status === "current"); const past = progs.filter(p => p.status !== "current");
+  const ws = workoutsOf(ctx);
+  const changes = progs.flatMap(p => (p.changes || []).filter(c => c.by === "self").map(c => ({...c, prog: p.name}))).sort((a, b) => b.at - a.at).slice(0, 15);
+  const since = shiftKey(baseKey(), -13); const last14 = ws.filter(w => w.date >= since).length;
+  return `<section class="card stack" aria-label="אימונים"><div class="row between"><h3>אימונים</h3><button class="btn sm" data-act="p-new" data-ctx="${esc(ctx)}">+ תוכנית חדשה</button></div>
+      ${u.workouts_enabled === false ? `<div class="note">אזור האימונים כבוי למתאמן הזה, אז הוא לא רואה את התוכניות. אפשר להפעיל אותו בכרטיס ״ניהול״.</div>` : ""}
+      <div class="muted small">${last14} אימונים ב־14 הימים האחרונים · ${ws.length} בסך הכול</div>
+      ${cur ? programCard(ctx, cur) : `<div class="muted">אין לו תוכנית נוכחית.</div>`}
+      ${past.length ? `<div class="sect-label">תוכניות לא פעילות (${past.length})</div>${past.map(p => programCard(ctx, p, true)).join("")}` : ""}
+    </section>
+    ${progressCard(ctx)}
+    <section class="card" aria-label="אימונים אחרונים של המתאמן"><h3>אימונים אחרונים</h3>${ws.length ? wlistHTML(ctx, ws.slice(0, 30)) : `<div class="muted small">עוד לא רשם אימונים.</div>`}</section>
+    ${changes.length ? `<section class="card stack" aria-label="שינויים שהמתאמן עשה"><h3>שינויים שהמתאמן עשה בתוכניות</h3>${changes.map(c => `<div class="chg"><div class="muted small">${esc(new Date(c.at).toLocaleString("he-IL", {day:"numeric", month:"numeric", hour:"2-digit", minute:"2-digit"}))} · <span dir="auto">${esc(c.prog)}</span></div><div class="small" dir="auto">${esc(c.text)}</div></div>`).join("")}</section>` : ""}`;
+}
+function kudosSheet(wid){
+  openSheet(`<div class="sheet-head"><h2>כל הכבוד</h2>${CLOSE_BTN}</div>
+    <label class="field">הודעה קצרה (לא חובה)<input id="k-text" type="text" dir="auto" maxlength="80" placeholder="לדוגמה: עלייה יפה בסקוואט!"></label>
+    <div class="actions"><button class="btn" data-act="close-sheet">ביטול</button><button class="btn primary" data-act="k-send" data-w="${esc(wid)}">שלח</button></div>`);
+}
+async function adminSetModules(id, food, train){
+  const { error } = await SB.rpc("admin_set_modules", {p_user: id, p_food: food, p_workouts: train});
+  if (error) { toast("לא נשמר."); render(); return; }
+  const u = (ADM.users || []).find(x => x.id === id); if (u) { u.food_enabled = food; u.workouts_enabled = train; }
+  if (id === Auth.user.id && Auth.profile) { Auth.profile.food_enabled = food; Auth.profile.workouts_enabled = train; }
+  toast("נשמר."); render();
+}
+
+/* ---- events ---- */
+Object.assign(ACT, {
+  "sec": el => { const sec = el.dataset.s; if (sec === S.sec) return; S.sec = sec;
+    if (S.tab !== "admin" && S.tab !== "settings") S.tab = sec === "food" ? "today" : "train";
+    if (TR.mode !== "home" && !(TR.mode === "edit" && TR.ctx !== "self" && S.tab === "admin" && sec === "train")) { TR.mode = "home"; TR.draft = null; TR.w = null; }
+    closeSheet(); render(); window.scrollTo(0, 0); },
+  "p-new": el => trOpenEditor(el.dataset.ctx, null),
+  "p-edit": el => trOpenEditor(el.dataset.ctx, el.dataset.p),
+  "p-cancel": () => { TR.mode = "home"; TR.draft = null; render(); },
+  "p-split": el => trSetSplit(el.dataset.s),
+  "p-save": () => trSaveProgram(),
+  "p-current": el => setCurrent(el.dataset.ctx, el.dataset.p).then(() => toast("הוגדרה כתוכנית הנוכחית.")),
+  "p-past": async el => { const ctx = el.dataset.ctx; const p = trDocs(ctx)[el.dataset.p]; await trPut(ctx, el.dataset.p, {...p, status:"past", changes: logChange(p, ctx === "self" ? "self" : "coach", "הועברה למצב לא פעיל")}); },
+  "p-del": async el => { const ok = await confirmBox("למחוק את התוכנית?", "האימונים שכבר נרשמו לפיה נשארים בהיסטוריה.", "מחק"); if (ok) trDel(el.dataset.ctx, el.dataset.p); },
+  "ex-add": el => openExSheet(el.dataset.d, null),
+  "ex-edit": el => openExSheet(el.dataset.d, el.dataset.x),
+  "ex-move": el => { const day = TR.draft.days.find(x => x.key === el.dataset.d); const i = day.ex.findIndex(x => x.id === el.dataset.x); const j = i + +el.dataset.n; if (j < 0 || j >= day.ex.length) return; [day.ex[i], day.ex[j]] = [day.ex[j], day.ex[i]]; render(); },
+  "ex-pv": el => { exReadFields(); EXS.preview = el.dataset.id; renderExSheet(); },
+  "ex-pv-no": () => { EXS.preview = null; renderExSheet(); },
+  "ex-pv-yes": () => { const e = EXL.byId[EXS.preview]; EXS.lib = EXS.preview; EXS.preview = null; if (!EXS.name.trim()) EXS.name = e[2] || e[1]; renderExSheet(); },
+  "ex-lib-clear": () => { exReadFields(); EXS.lib = null; renderExSheet(); },
+  "ex-save": () => exSave(),
+  "ex-del": () => { const day = TR.draft.days.find(x => x.key === EXS.dayKey); day.ex = day.ex.filter(x => x.id !== EXS.exId); sheetCleanup = null; EXS = null; closeSheet(); render(); },
+  "w-start": el => trStartWorkout(el.dataset.p, el.dataset.d),
+  "w-open": el => trStartWorkout(null, null, el.dataset.w),
+  "w-cancel": () => { TR.mode = "home"; TR.w = null; render(); },
+  "w-save": () => trSaveWorkout(),
+  "w-del": async () => { const ok = await confirmBox("למחוק את האימון?", "המשקלים שרשמת בו יימחקו.", "מחק"); if (ok) { Store.del(TR.w.id); TR.mode = "home"; TR.w = null; render(); } },
+  "w-del-row": async el => { const ok = await confirmBox("למחוק את האימון?", "המשקלים וההערות שרשמת בו יימחקו.", "מחק"); if (ok) { Store.del(el.dataset.w); toast("האימון נמחק."); render(); } },
+  "w-toggle": el => { TR.open = TR.open === el.dataset.w ? null : el.dataset.w; render(); },
+  "k-give": el => kudosSheet(el.dataset.w),
+  "k-send": el => { const text = (($("#k-text") || {}).value || "").trim().slice(0, 80); closeSheet(); trPut(ADM.sel, "kudos-" + el.dataset.w, {kind:"kudos", workoutId: el.dataset.w, text, at: Date.now()}).then(() => toast("נשלח.")); },
+  "k-del": el => trDel(ADM.sel, "kudos-" + el.dataset.w),
+});
+document.addEventListener("input", e => {
+  const t = e.target;
+  if (t.id === "p-name" && TR.draft) TR.draft.name = t.value;
+  else if (t.dataset && t.dataset.dtitle != null && TR.draft) { const d = TR.draft.days.find(x => x.key === t.dataset.dtitle); if (d) d.title = t.value; }
+  else if (t.id === "ex-name" && EXS) { EXS.name = t.value; EXS.q = t.value; const r = $("#ex-results"); if (r) r.innerHTML = exResultsHTML(exSearch(t.value)); }
+});
+document.addEventListener("change", e => {
+  const t = e.target;
+  if (t.id === "p-current" && TR.draft) TR.draft.status = t.checked ? "current" : "past";
+  else if (t.id === "tr-prog") { TR.prog = TR.prog || {}; TR.prog[t.dataset.ctx] = t.value; render(); }
+  else if (t.id === "adm-food" || t.id === "adm-train") { const f = $("#adm-food").checked, tr = $("#adm-train").checked; adminSetModules(t.dataset.id, f, tr); }
+});
 
 Auth.start();
 </script>
