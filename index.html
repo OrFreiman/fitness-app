@@ -657,6 +657,7 @@ const Store = {
     try {
       this.docs = await this.fetchAll();
       this.loaded = true; this.confirmed = true; this.slow = false; clearTimeout(timer);
+      try { wdResume(); } catch (e) { console.warn(e); }
       render(); setTimeout(autoLockCheck, 0);
     } catch (e) { clearTimeout(timer); this.loaded = true; this.error = "load"; this.slow = true; render(); toast("לא הצלחנו לטעון את הנתונים. בדוק את החיבור ורענן."); }
   },
@@ -2057,7 +2058,7 @@ views.admin = () => {
 
 /* ============ events ============ */
 const ACT = {
-  "tab": el => { S.tab = el.dataset.tab; if (TR.mode !== "home" && !(TR.mode === "edit" && TR.ctx !== "self" && S.tab === "admin")) { TR.mode = "home"; TR.draft = null; TR.w = null; } closeSheet(); render(); window.scrollTo(0, 0); },
+  "tab": el => { wdPark(); S.tab = el.dataset.tab; if (TR.mode !== "home" && !(TR.mode === "edit" && TR.ctx !== "self" && S.tab === "admin")) { TR.mode = "home"; TR.draft = null; TR.w = null; } closeSheet(); render(); window.scrollTo(0, 0); },
   "day-shift": el => { const tk = todayKey(); const k = shiftKey(S.day || tk, +el.dataset.n); S.day = k >= tk ? null : k; S.q = ""; render(); },
   "open-day": el => { S.day = el.dataset.k === todayKey() ? null : el.dataset.k; S.tab = "today"; render(); window.scrollTo(0,0); },
   "q-go": () => goQuery(),
@@ -2379,15 +2380,78 @@ function trStartWorkout(pid, dayKey, wid){
       entries: d.ex.map(e => ({exId: e.id, name: e.name, sets: e.sets, reps: e.reps, notes: e.notes || "", lib: e.lib || null, yt: e.yt || "", weight: null, note: ""}))}; }
   TR.mode = "log"; exLoad(); render(); window.scrollTo(0, 0);
 }
-function trSaveWorkout(){
-  const w = TR.w;
-  document.querySelectorAll("[data-wkg]").forEach(el => { const v = parseNum(el.value); w.entries[+el.dataset.wkg].weight = isFinite(v) && v >= 0 ? Math.round(v * 100) / 100 : null; });
-  document.querySelectorAll("[data-wnote]").forEach(el => { w.entries[+el.dataset.wnote].note = el.value.trim().slice(0, 200); });
-  document.querySelectorAll("[data-wdone]").forEach(el => { w.entries[+el.dataset.wdone].done = el.checked; });
+/* copy what is typed on the log screen into TR.w (so a redraw never wipes it) */
+function readLogFields(){
+  const w = TR.w; if (!w) return;
+  document.querySelectorAll("[data-wkg]").forEach(el => { const e = w.entries[+el.dataset.wkg]; if (!e) return; const raw = el.value.trim(); const v = parseNum(raw); e.weight = raw && isFinite(v) && v >= 0 ? Math.round(v * 100) / 100 : null; });
+  document.querySelectorAll("[data-wnote]").forEach(el => { const e = w.entries[+el.dataset.wnote]; if (e) e.note = el.value.slice(0, 200); });
+  document.querySelectorAll("[data-wdone]").forEach(el => { const e = w.entries[+el.dataset.wdone]; if (e) e.done = el.checked; });
   const dEl = $("#w-date"); if (dEl && /^\d{4}-\d{2}-\d{2}$/.test(dEl.value)) w.date = dEl.value;
-  const {id, isNew, ...data} = w;
-  Store.put(id, data); toast(isNew ? "האימון נשמר. כל הכבוד!" : "האימון עודכן."); TR.mode = "home"; TR.w = null; render(); window.scrollTo(0, 0);
 }
+function trSaveWorkout(){
+  readLogFields();
+  const w = TR.w; w.entries.forEach(e => { e.note = (e.note || "").trim(); });
+  const {id, isNew, ...data} = w;
+  Store.put(id, data); wdClear(); toast(isNew ? "האימון נשמר. כל הכבוד!" : "האימון עודכן."); TR.mode = "home"; TR.w = null; render(); window.scrollTo(0, 0);
+}
+
+/* ---- workout draft: saved while you log, so locking the phone or leaving the app loses nothing ----
+   Kept on this phone (localStorage) and in the database (doc "wdraft", kind "wdraft"; read only by the trainee).
+   Cleared when the workout is saved, cancelled or deleted. */
+const WD = {timer:null};
+const wdKey = () => "wdraft-" + (Auth.user ? Auth.user.id : "");
+function wdRead(){
+  let local = null; try { local = JSON.parse(localStorage.getItem(wdKey()) || "null"); } catch (e) {}
+  const pick = [local, Store.docs.wdraft || null].filter(d => d && d.w && Array.isArray(d.w.entries)).sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0))[0];
+  if (!pick) return null;
+  const saved = Store.docs[pick.w.id]; if (saved && (saved.updatedAt || 0) >= (pick.savedAt || 0)) return null; // already saved after this draft
+  return pick;
+}
+function wdLocal(){
+  if (!TR.w || !Auth.user) return null;
+  const d = {kind:"wdraft", w: structuredClone(TR.w), savedAt: Date.now()};
+  try { localStorage.setItem(wdKey(), JSON.stringify(d)); } catch (e) {}
+  return d;
+}
+function wdSaveNow(){
+  clearTimeout(WD.timer); WD.timer = null;
+  const d = wdLocal(); if (!d) return;
+  Store.docs = {...Store.docs, wdraft: d};
+  // quiet: no error toast for a draft (the gym may have weak signal); the phone copy is the backup
+  const q = (Store.queues.wdraft || Promise.resolve()).then(async () => {
+    const { error } = await SB.from("docs").upsert({user_id: Auth.user.id, id: "wdraft", data: d, updated_at: new Date().toISOString()}); if (error) throw error;
+  }).catch(e => console.warn("draft", e)).finally(() => { if (Store.queues.wdraft === q) q.pending = false; });
+  q.pending = true; Store.queues.wdraft = q;
+}
+function wdTouch(){ readLogFields(); wdLocal(); clearTimeout(WD.timer); WD.timer = setTimeout(wdSaveNow, 1500); }
+function wdClear(){
+  clearTimeout(WD.timer); WD.timer = null;
+  try { localStorage.removeItem(wdKey()); } catch (e) {}
+  if (Auth.user) Store.del("wdraft");
+}
+/* leaving the log screen without saving (other tab/section): keep the draft for later */
+function wdPark(){ if (TR.mode === "log" && TR.w) { readLogFields(); wdSaveNow(); } }
+/* app opened again (e.g. the phone reloaded the page after locking): go straight back to the workout */
+function wdResume(){
+  if (TR.w) return;
+  const d = wdRead(); if (!d || !MODS().train) return;
+  if (Date.now() - (d.savedAt || 0) > 12 * 3600e3) return; // older drafts are offered on the training screen
+  TR.w = d.w; TR.mode = "log"; S.sec = "train"; S.tab = "train"; exLoad();
+  setTimeout(() => toast("חזרת לאימון. מה שרשמת נשמר."), 400);
+}
+function wdOpen(d){ TR.w = d.w; TR.mode = "log"; exLoad(); render(); window.scrollTo(0, 0); }
+async function trStartChecked(pid, dayKey, wid){
+  const d = wdRead();
+  if (d) {
+    if (wid && d.w.id === wid) { wdOpen(d); return; }
+    const ok = await confirmBox("יש אימון שלא נשמר", "אם תמשיך, מה שרשמת באימון הקודם יימחק. אפשר לחזור אליו דרך ״המשך את האימון״ במסך האימונים.", "מחק והמשך");
+    if (!ok) return; wdClear();
+  }
+  trStartWorkout(pid, dayKey, wid);
+  if (!wid) wdSaveNow();
+}
+document.addEventListener("visibilitychange", () => { if (document.hidden) wdPark(); });
+window.addEventListener("pagehide", wdPark);
 
 /* ---- small chart: weight per workout for one exercise ---- */
 function progressChart(pts){
@@ -2502,7 +2566,9 @@ views.train = () => {
   const recentK = ws.slice(0, 10).map(w => [w, kudosFor("self", w.id)]).filter(([, k]) => k && Date.now() - (k.at || 0) < 7 * 864e5);
   const weekStart = shiftKey(baseKey(), -parseKey(baseKey()).getDay());
   const thisWeek = ws.filter(w => w.date >= weekStart).length;
+  const wd = wdRead();
   return `<div class="row between"><h2>אימונים</h2><button class="btn" data-act="p-new" data-ctx="self">+ תוכנית</button></div>
+    ${wd ? `<section class="card stack" aria-label="אימון שלא נשמר"><b>יש אימון שלא נשמר</b><div class="muted small" dir="auto">${esc(wd.w.dayTitle)} · ${esc(niceDate(wd.w.date))}</div><div class="row"><button class="btn primary sm" data-act="wd-resume">המשך את האימון</button><button class="btn ghost danger sm" data-act="wd-discard">מחק</button></div></section>` : ""}
     ${recentK.map(([w, k]) => `<div class="kudos-banner">המאמן נתן לך כל הכבוד על ${esc(w.dayTitle)} (${esc(niceDate(w.date))})${k.text ? `: <span dir="auto">${esc(k.text)}</span>` : ""}</div>`).join("")}
     <div class="tiles"><div class="tile"><b class="num">${thisWeek}</b><span>אימונים השבוע</span></div><div class="tile"><b class="num">${ws.length}</b><span>אימונים בסך הכול</span></div><div class="tile"><b class="num">${ws[0] ? esc(parseKey(ws[0].date).toLocaleDateString("he-IL", {day:"numeric", month:"numeric"})) : "–"}</b><span>אימון אחרון</span></div></div>
     <section class="card stack" aria-label="התוכנית הנוכחית"><h3>התוכנית הנוכחית</h3>
@@ -2545,7 +2611,7 @@ async function adminSetModules(id, food, train){
 
 /* ---- events ---- */
 Object.assign(ACT, {
-  "sec": el => { const sec = el.dataset.s; if (sec === S.sec) return; S.sec = sec;
+  "sec": el => { const sec = el.dataset.s; if (sec === S.sec) return; wdPark(); S.sec = sec;
     if (S.tab !== "admin" && S.tab !== "settings") S.tab = sec === "food" ? "today" : "train";
     if (TR.mode !== "home" && !(TR.mode === "edit" && TR.ctx !== "self" && S.tab === "admin" && sec === "train")) { TR.mode = "home"; TR.draft = null; TR.w = null; }
     closeSheet(); render(); window.scrollTo(0, 0); },
@@ -2566,26 +2632,34 @@ Object.assign(ACT, {
   "ex-lib-clear": () => { exReadFields(); EXS.lib = null; renderExSheet(); },
   "ex-save": () => exSave(),
   "ex-del": () => { const day = TR.draft.days.find(x => x.key === EXS.dayKey); day.ex = day.ex.filter(x => x.id !== EXS.exId); sheetCleanup = null; EXS = null; closeSheet(); render(); },
-  "w-start": el => trStartWorkout(el.dataset.p, el.dataset.d),
-  "w-open": el => trStartWorkout(null, null, el.dataset.w),
-  "w-cancel": () => { TR.mode = "home"; TR.w = null; render(); },
+  "w-start": el => trStartChecked(el.dataset.p, el.dataset.d),
+  "w-open": el => trStartChecked(null, null, el.dataset.w),
+  "w-cancel": async () => { readLogFields(); const w = TR.w;
+    const dirty = w && (w.isNew ? w.entries.some(e => e.weight != null || (e.note || "").trim() || e.done) : !!wdRead());
+    if (dirty && !(await confirmBox("לבטל את האימון?", w.isNew ? "מה שרשמת באימון הזה יימחק." : "השינויים שעשית לא יישמרו.", "בטל"))) return;
+    wdClear(); TR.mode = "home"; TR.w = null; render(); },
   "w-save": () => trSaveWorkout(),
-  "w-del": async () => { const ok = await confirmBox("למחוק את האימון?", "המשקלים שרשמת בו יימחקו.", "מחק"); if (ok) { Store.del(TR.w.id); TR.mode = "home"; TR.w = null; render(); } },
+  "w-del": async () => { const ok = await confirmBox("למחוק את האימון?", "המשקלים שרשמת בו יימחקו.", "מחק"); if (ok) { const id = TR.w.id; wdClear(); if (!TR.w.isNew) Store.del(id); TR.mode = "home"; TR.w = null; render(); } },
+  "wd-resume": () => { const d = wdRead(); if (d) wdOpen(d); else render(); },
+  "wd-discard": async () => { const ok = await confirmBox("למחוק את האימון שלא נשמר?", "מה שרשמת בו יימחק.", "מחק"); if (ok) { wdClear(); render(); } },
   "w-del-row": async el => { const ok = await confirmBox("למחוק את האימון?", "המשקלים וההערות שרשמת בו יימחקו.", "מחק"); if (ok) { Store.del(el.dataset.w); toast("האימון נמחק."); render(); } },
   "w-toggle": el => { TR.open = TR.open === el.dataset.w ? null : el.dataset.w; render(); },
   "k-give": el => kudosSheet(el.dataset.w),
   "k-send": el => { const text = (($("#k-text") || {}).value || "").trim().slice(0, 80); closeSheet(); trPut(ADM.sel, "kudos-" + el.dataset.w, {kind:"kudos", workoutId: el.dataset.w, text, at: Date.now()}).then(() => toast("נשלח.")); },
   "k-del": el => trDel(ADM.sel, "kudos-" + el.dataset.w),
 });
+const isLogField = t => TR.mode === "log" && TR.w && t.matches && t.matches("[data-wkg],[data-wnote],[data-wdone],#w-date");
 document.addEventListener("input", e => {
   const t = e.target;
-  if (t.id === "p-name" && TR.draft) TR.draft.name = t.value;
+  if (isLogField(t)) wdTouch();
+  else if (t.id === "p-name" && TR.draft) TR.draft.name = t.value;
   else if (t.dataset && t.dataset.dtitle != null && TR.draft) { const d = TR.draft.days.find(x => x.key === t.dataset.dtitle); if (d) d.title = t.value; }
   else if (t.id === "ex-name" && EXS) { EXS.name = t.value; EXS.q = t.value; const r = $("#ex-results"); if (r) r.innerHTML = exResultsHTML(exSearch(t.value)); }
 });
 document.addEventListener("change", e => {
   const t = e.target;
-  if (t.id === "p-current" && TR.draft) TR.draft.status = t.checked ? "current" : "past";
+  if (isLogField(t)) wdTouch();
+  else if (t.id === "p-current" && TR.draft) TR.draft.status = t.checked ? "current" : "past";
   else if (t.id === "tr-prog") { TR.prog = TR.prog || {}; TR.prog[t.dataset.ctx] = t.value; render(); }
   else if (t.id === "adm-food" || t.id === "adm-train") { const f = $("#adm-food").checked, tr = $("#adm-train").checked; adminSetModules(t.dataset.id, f, tr); }
 });
