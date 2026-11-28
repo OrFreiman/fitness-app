@@ -262,6 +262,28 @@ body.signed-out .secbar{display:none}
 .prog.off > :not(.row.wrap), .prog.off .row.wrap > :not([data-act="p-current"]){opacity:.5;filter:grayscale(1)}
 .tag.on{background:color-mix(in srgb,var(--deficit) 18%,transparent);color:var(--deficit);font-weight:700}
 .done-check{align-self:flex-start;font-weight:700}
+.top-r{display:flex;align-items:center;gap:10px;flex:none}
+.top-r h1{white-space:nowrap}
+header.top .store-pill{white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
+header.top .store-pill > span{overflow:hidden;text-overflow:ellipsis}
+.kd-bell{position:relative;flex:none;width:38px;height:38px;border-radius:50%;border:0;background:var(--surface);color:var(--accent);display:inline-grid;place-items:center;box-shadow:var(--shadow);cursor:pointer;padding:0}
+.kd-bell[hidden],.kd-bell .kd-n[hidden]{display:none}
+.kd-bell svg{width:21px;height:21px}
+.kd-bell .kd-n{position:absolute;top:-4px;left:-4px;min-width:19px;height:19px;padding:0 5px;border-radius:99px;background:#e5484d;color:#fff;font-size:.7rem;font-weight:800;display:grid;place-items:center;border:2px solid var(--bg)}
+#kd-wrap{position:fixed;inset:0;z-index:30;display:none}
+#kd-wrap.open{display:block}
+#kd-back{position:absolute;inset:0;background:rgba(20,10,50,.45)}
+#kd-pop{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(340px,calc(100% - 36px));max-height:82vh;overflow:auto;background:var(--surface);border-radius:26px;padding:22px 18px 18px;box-shadow:var(--shadow);animation:kdpop .2s ease-out}
+#kd-side{position:absolute;top:0;bottom:0;right:0;width:min(330px,86%);background:var(--surface);padding:18px 16px;overflow:auto;animation:kdin .22s ease-out}
+@keyframes kdin{from{transform:translateX(100%)}to{transform:none}}
+@keyframes kdpop{from{opacity:0;transform:translate(-50%,-46%)}to{opacity:1;transform:translate(-50%,-50%)}}
+.kd-heart{width:58px;height:58px;border-radius:50%;margin:0 auto 6px;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,var(--hero-a),var(--hero-c));font-size:1.7rem}
+.kd-item{display:block;width:100%;text-align:right;border:0;background:var(--accent-soft);border-radius:14px;padding:10px 12px;margin-top:8px;color:var(--ink);font:inherit;cursor:pointer}
+.kd-item.seen{background:transparent;border-bottom:1px solid var(--line);border-radius:0;margin-top:0}
+.kd-item .t{font-weight:700}
+.kd-item .m{font-size:.85rem;color:var(--muted)}
+.kd-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);margin-left:6px;vertical-align:middle}
+@media (prefers-reduced-motion: reduce){#kd-side,#kd-pop{animation:none}}
 .wex.wdone-card{padding-top:12px;padding-bottom:12px}
 .wex.wdone-card .wdone-info{opacity:.5;filter:grayscale(1);min-width:0}
 .wex.wdone-card .wdone-info b{text-decoration:line-through;text-decoration-thickness:1px}
@@ -279,7 +301,8 @@ details summary{cursor:pointer;color:var(--accent);font-weight:700}
 <body>
 <div id="app">
   <header class="top">
-    <h1><img class="logo" src="icons/icon.svg" alt="" aria-hidden="true">מעקב כושר</h1>
+    <div class="top-r"><button id="kd-bell" class="kd-bell" data-act="kd-open" hidden aria-label="כל הכבוד מהמאמן"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15Z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg><span class="kd-n" hidden></span></button>
+    <h1><img class="logo" src="icons/icon.svg" alt="" aria-hidden="true">מעקב כושר</h1></div>
     <span id="store-pill" class="store-pill"><i></i><span>טוען…</span></span>
   </header>
   <div class="secbar" id="secbar" hidden><div class="seg" role="group" aria-label="אזור באפליקציה">
@@ -299,6 +322,7 @@ details summary{cursor:pointer;color:var(--accent);font-weight:700}
 <input type="file" id="lbl-file" class="hidden-file" accept="image/*" capture="environment" tabindex="-1" aria-hidden="true">
 <div id="sheet-wrap" aria-hidden="true"><div id="sheet-backdrop" data-act="close-sheet"></div><div id="sheet" role="dialog" aria-modal="true"></div></div>
 
+<div id="kd-wrap" aria-hidden="true"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 "use strict";
@@ -737,6 +761,7 @@ const macLine = m => `חלבון ${g1(m.p)} · פחמ׳ ${g1(m.c)} · שומן $
 /* ============ rendering ============ */
 const views = {};
 function render(){
+  try { kdUpdate(); } catch (e) {}
   const pill = $("#store-pill");
   if (!Auth.user) { pill.className = "store-pill local"; pill.lastElementChild.textContent = "לא מחובר"; return; }
   $("#tab-admin").style.display = Auth.isAdmin ? "" : "none";
@@ -2457,6 +2482,51 @@ async function trStartChecked(pid, dayKey, wid){
 document.addEventListener("visibilitychange", () => { if (document.hidden) wdPark(); });
 window.addEventListener("pagehide", wdPark);
 
+/* ---- kudos for the trainee: pop-up for new ones, bell at the top right with a count, side bar with all of them ----
+   Seen = settings.kudosSeenAt (time of the newest kudos seen), so it is the same on every device. */
+const KD = {shown:new Set(), view:null};
+const kdOn = () => !!(Auth.user && !Auth.isAdmin && Store.loaded && MODS().train);
+const kdList = () => trList("self", "kudos").map(k => ({...k, w: Store.docs[k.workoutId]})).filter(k => k.w).sort((a, b) => (b.at || 0) - (a.at || 0));
+const kdSeenAt = () => +(settings().kudosSeenAt) || 0;
+const kdUnseen = () => { const s = kdSeenAt(), old = Date.now() - 14 * 864e5; return kdList().filter(k => (k.at || 0) > s && (k.at || 0) > old); };
+function kdAgo(t){
+  if (!t) return ""; const d = Math.round((parseKey(baseKey()) - parseKey(keyOf(new Date(t)))) / 864e5);
+  return d <= 0 ? "היום" : d === 1 ? "אתמול" : d < 7 ? `לפני ${d} ימים` : new Date(t).toLocaleDateString("he-IL", {day:"numeric", month:"short"});
+}
+const kdItem = (k, isNew) => `<button class="kd-item${isNew ? "" : " seen"}" data-act="kd-go" data-w="${esc(k.workoutId)}"><div class="t" dir="auto">${isNew ? '<span class="kd-dot" aria-label="חדש"></span>' : ""}${esc(k.w.dayTitle || "אימון")} · ${esc(niceDate(k.w.date))}</div><div class="m" dir="auto">${k.text ? "״" + esc(k.text) + "״" : "בלי הודעה"} · ${esc(kdAgo(k.at))}</div></button>`;
+function kdUpdate(){
+  const bell = $("#kd-bell"); if (!bell) return;
+  const on = kdOn(); bell.hidden = !on;
+  if (!on) { if (KD.view) kdClose(false); return; }
+  const un = kdUnseen(), n = bell.querySelector(".kd-n");
+  n.hidden = !un.length; n.textContent = un.length > 9 ? "9+" : String(un.length);
+  bell.setAttribute("aria-label", un.length ? `כל הכבוד מהמאמן: ${un.length} חדשים` : "כל הכבוד מהמאמן");
+  if (un.some(k => !KD.shown.has(k.id)) && !KD.view && !sheetOpen() && TR.mode !== "log") { un.forEach(k => KD.shown.add(k.id)); kdShow("pop", un); }
+}
+function kdShow(view, list){
+  KD.view = view; const w = $("#kd-wrap"); const seen = kdSeenAt();
+  w.innerHTML = view === "pop"
+    ? `<div id="kd-back" data-act="kd-close"></div><div id="kd-pop" role="dialog" aria-modal="true" aria-labelledby="kd-h">
+        <button class="icon-btn" data-act="kd-close" aria-label="סגור" style="position:absolute;left:8px;top:8px">✕</button>
+        <div class="kd-heart" aria-hidden="true">♥</div><h2 id="kd-h" style="text-align:center">כל הכבוד מהמאמן!</h2>
+        <div class="muted small" style="text-align:center">${list.length === 1 ? "קיבלת כל הכבוד חדש" : `קיבלת ${list.length} חדשים`}</div>
+        ${list.map(k => kdItem(k, true)).join("")}
+        <button class="btn primary block" data-act="kd-close" style="margin-top:14px">תודה!</button></div>`
+    : `<div id="kd-back" data-act="kd-close"></div><aside id="kd-side" role="dialog" aria-modal="true" aria-labelledby="kd-sh">
+        <div class="row between"><h2 id="kd-sh">כל הכבוד מהמאמן</h2><button class="icon-btn" data-act="kd-close" aria-label="סגור">✕</button></div>
+        ${list.length ? list.map(k => kdItem(k, (k.at || 0) > seen)).join("") + `<div class="muted small" style="margin-top:12px">לחיצה על שורה פותחת את האימון</div>`
+          : `<div class="muted" style="margin-top:12px">עוד אין כאן כלום. כשהמאמן ייתן לך כל הכבוד על אימון, זה יופיע כאן.</div>`}</aside>`;
+  w.classList.add("open"); w.setAttribute("aria-hidden", "false");
+  if (view === "side") kdMarkSeen();
+}
+function kdMarkSeen(){ const top = kdList().reduce((m, k) => Math.max(m, k.at || 0), 0); if (top > kdSeenAt()) saveSettings({kudosSeenAt: top}); }
+function kdClose(markSeen = true){
+  const w = $("#kd-wrap"); const was = KD.view; KD.view = null;
+  w.classList.remove("open"); w.setAttribute("aria-hidden", "true"); w.innerHTML = "";
+  if (was === "pop" && markSeen) kdMarkSeen();
+}
+document.addEventListener("keydown", e => { if (e.key === "Escape" && KD.view) kdClose(); });
+
 /* ---- small chart: weight per workout for one exercise ---- */
 function progressChart(pts){
   if (!pts.length) return `<div class="muted small">עוד אין משקלים רשומים לתרגיל הזה.</div>`;
@@ -2570,13 +2640,11 @@ views.train = () => {
   if (TR.mode === "log" && TR.w) return logView();
   const progs = programsOf("self"); const cur = progs.find(p => p.status === "current"); const past = progs.filter(p => p.status !== "current");
   const ws = workoutsOf("self");
-  const recentK = ws.slice(0, 10).map(w => [w, kudosFor("self", w.id)]).filter(([, k]) => k && Date.now() - (k.at || 0) < 7 * 864e5);
   const weekStart = shiftKey(baseKey(), -parseKey(baseKey()).getDay());
   const thisWeek = ws.filter(w => w.date >= weekStart).length;
   const wd = wdRead();
   return `<div class="row between"><h2>אימונים</h2><button class="btn" data-act="p-new" data-ctx="self">+ תוכנית</button></div>
     ${wd ? `<section class="card stack" aria-label="אימון שלא נשמר"><b>יש אימון שלא נשמר</b><div class="muted small" dir="auto">${esc(wd.w.dayTitle)} · ${esc(niceDate(wd.w.date))}</div><div class="row"><button class="btn primary sm" data-act="wd-resume">המשך את האימון</button><button class="btn ghost danger sm" data-act="wd-discard">מחק</button></div></section>` : ""}
-    ${recentK.map(([w, k]) => `<div class="kudos-banner">המאמן נתן לך כל הכבוד על ${esc(w.dayTitle)} (${esc(niceDate(w.date))})${k.text ? `: <span dir="auto">${esc(k.text)}</span>` : ""}</div>`).join("")}
     <div class="tiles"><div class="tile"><b class="num">${thisWeek}</b><span>אימונים השבוע</span></div><div class="tile"><b class="num">${ws.length}</b><span>אימונים בסך הכול</span></div><div class="tile"><b class="num">${ws[0] ? esc(parseKey(ws[0].date).toLocaleDateString("he-IL", {day:"numeric", month:"numeric"})) : "–"}</b><span>אימון אחרון</span></div></div>
     <section class="card stack" aria-label="התוכנית הנוכחית"><h3>התוכנית הנוכחית</h3>
       ${cur ? programCard("self", cur) : `<div class="muted">עוד אין תוכנית נוכחית. צור תוכנית חדשה, או בקש מהמאמן שלך לבנות לך אחת.</div><button class="btn primary" data-act="p-new" data-ctx="self">צור תוכנית</button>`}
@@ -2646,6 +2714,9 @@ Object.assign(ACT, {
     if (dirty && !(await confirmBox("לבטל את האימון?", w.isNew ? "מה שרשמת באימון הזה יימחק." : "השינויים שעשית לא יישמרו.", "בטל"))) return;
     wdClear(); TR.mode = "home"; TR.w = null; render(); },
   "w-save": () => trSaveWorkout(),
+  "kd-open": () => kdShow("side", kdList()),
+  "kd-close": () => kdClose(),
+  "kd-go": el => { const wid = el.dataset.w; kdClose(); closeSheet(); S.sec = "train"; S.tab = "train"; trStartChecked(null, null, wid); },
   "w-edit-ex": el => { readLogFields(); TR.wedit.add(+el.dataset.i); render(); const f = document.querySelector(`[data-wkg="${+el.dataset.i}"]`); if (f) f.closest(".wex").scrollIntoView({block:"nearest"}); },
   "w-fold-ex": el => { readLogFields(); TR.wedit.delete(+el.dataset.i); wdTouch(); render(); },
   "w-del": async () => { const ok = await confirmBox("למחוק את האימון?", "המשקלים שרשמת בו יימחקו.", "מחק"); if (ok) { const id = TR.w.id; wdClear(); if (!TR.w.isNew) Store.del(id); TR.mode = "home"; TR.w = null; render(); } },
