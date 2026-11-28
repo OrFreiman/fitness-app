@@ -262,6 +262,9 @@ body.signed-out .secbar{display:none}
 .prog.off > :not(.row.wrap), .prog.off .row.wrap > :not([data-act="p-current"]){opacity:.5;filter:grayscale(1)}
 .tag.on{background:color-mix(in srgb,var(--deficit) 18%,transparent);color:var(--deficit);font-weight:700}
 .done-check{align-self:flex-start;font-weight:700}
+.wex.wdone-card{padding-top:12px;padding-bottom:12px}
+.wex.wdone-card .wdone-info{opacity:.5;filter:grayscale(1);min-width:0}
+.wex.wdone-card .wdone-info b{text-decoration:line-through;text-decoration-thickness:1px}
 .wrow .icon-btn{flex:none;color:var(--muted)}
 .ok{color:var(--deficit)}
 .wlist{max-height:340px;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
@@ -309,6 +312,7 @@ const addM = (a,b) => { const r = {}; KEYS.forEach(k => r[k] = (+a[k]||0) + (+b[
 const scaleM = (a,s) => { const r = {}; KEYS.forEach(k => r[k] = (+a[k]||0) * s); return r; };
 const nfmt = new Intl.NumberFormat("en-US", {maximumFractionDigits:0});
 const k0 = n => nfmt.format(Math.round(n || 0));
+const gkg = n => String(Math.round((+n || 0) * 100) / 100); // weights: keep 52.5 as 52.5
 const g1 = n => { const v = Math.round((n||0)*10)/10; return (Math.abs(v) >= 10 ? Math.round(v) : v).toString(); };
 /* signed numbers are wrapped in a left-to-right isolate so the minus sign stays in front of the digits inside Hebrew text */
 const signedRaw = n => { const v = Math.round(n||0); return (v > 0 ? "+" : v < 0 ? "−" : "") + nfmt.format(Math.abs(v)); };
@@ -2285,7 +2289,7 @@ function diffProgram(a, b){
 }
 
 /* ---- state for the training screens ---- */
-const TR = {mode:"home", ctx:"self", draft:null, orig:null, w:null, prog:null};
+const TR = {mode:"home", ctx:"self", draft:null, orig:null, w:null, prog:null, wedit:new Set()}; // wedit: done exercises opened again with "ערוך" (screen only)
 function trOpenEditor(ctx, pid){
   const p = pid ? trDocs(ctx)[pid] : null;
   TR.ctx = ctx; TR.orig = p ? {id: pid, ...structuredClone(p)} : null;
@@ -2378,7 +2382,7 @@ function trStartWorkout(pid, dayKey, wid){
   else { const p = Store.docs[pid]; const d = p.days.find(x => x.key === dayKey);
     TR.w = {id: "workout-" + baseKey() + "-" + rid(), kind:"workout", date: baseKey(), programId: pid, programName: p.name, dayKey, dayTitle: dayName(p, d), at: Date.now(), isNew: true,
       entries: d.ex.map(e => ({exId: e.id, name: e.name, sets: e.sets, reps: e.reps, notes: e.notes || "", lib: e.lib || null, yt: e.yt || "", weight: null, note: ""}))}; }
-  TR.mode = "log"; exLoad(); render(); window.scrollTo(0, 0);
+  TR.wedit = new Set(); TR.mode = "log"; exLoad(); render(); window.scrollTo(0, 0);
 }
 /* copy what is typed on the log screen into TR.w (so a redraw never wipes it) */
 function readLogFields(){
@@ -2436,10 +2440,10 @@ function wdResume(){
   if (TR.w) return;
   const d = wdRead(); if (!d || !MODS().train) return;
   if (Date.now() - (d.savedAt || 0) > 12 * 3600e3) return; // older drafts are offered on the training screen
-  TR.w = d.w; TR.mode = "log"; S.sec = "train"; S.tab = "train"; exLoad();
+  TR.wedit = new Set(); TR.w = d.w; TR.mode = "log"; S.sec = "train"; S.tab = "train"; exLoad();
   setTimeout(() => toast("חזרת לאימון. מה שרשמת נשמר."), 400);
 }
-function wdOpen(d){ TR.w = d.w; TR.mode = "log"; exLoad(); render(); window.scrollTo(0, 0); }
+function wdOpen(d){ TR.wedit = new Set(); TR.w = d.w; TR.mode = "log"; exLoad(); render(); window.scrollTo(0, 0); }
 async function trStartChecked(pid, dayKey, wid){
   const d = wdRead();
   if (d) {
@@ -2499,7 +2503,7 @@ function workoutRow(ctx, w){
     ${ctx === "self" ? `<button class="icon-btn" data-act="w-del-row" data-w="${esc(w.id)}" aria-label="מחק את האימון מ־${esc(niceDate(w.date))}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13M10 11v5M14 11v5"/></svg></button>` : ""}
     ${ctx !== "self" ? (k ? `<button class="btn ghost sm" data-act="k-del" data-w="${esc(w.id)}">בטל כל הכבוד</button>` : `<button class="btn sm" data-act="k-give" data-w="${esc(w.id)}">כל הכבוד</button>`) : ""}
   </div>
-  ${ctx !== "self" && TR.open === w.id ? `<div class="wdetail">${(w.entries || []).map(e => `<div class="exline"><span dir="auto">${e.done ? '<b class="ok" aria-label="בוצע">✓</b> ' : ""}${esc(e.name)}</span><span class="num">${e.weight != null ? g1(e.weight) + " ק״ג" : "–"}</span></div>${e.note ? `<div class="muted small exnote" dir="auto">${esc(e.note)}</div>` : ""}`).join("")}</div>` : ""}`;
+  ${ctx !== "self" && TR.open === w.id ? `<div class="wdetail">${(w.entries || []).map(e => `<div class="exline"><span dir="auto">${e.done ? '<b class="ok" aria-label="בוצע">✓</b> ' : ""}${esc(e.name)}</span><span class="num">${e.weight != null ? gkg(e.weight) + " ק״ג" : "–"}</span></div>${e.note ? `<div class="muted small exnote" dir="auto">${esc(e.note)}</div>` : ""}`).join("")}</div>` : ""}`;
 }
 /* recent workouts: more than 3 → a scrolling box about 3 rows tall */
 function wlistHTML(ctx, list){
@@ -2545,13 +2549,16 @@ function logView(){
   return `<div class="row between"><div><h2 dir="auto">${esc(w.dayTitle)}</h2><div class="muted small" dir="auto">${esc(w.programName)}</div></div><button class="btn" data-act="w-cancel">ביטול</button></div>
     <label class="field">תאריך<input id="w-date" type="date" dir="ltr" value="${esc(w.date)}" max="${esc(baseKey())}"></label>
     ${w.entries.map((e, i) => { const last = lastFor("self", e, w.id);
+      if (e.done && !TR.wedit.has(i)) return `<section class="card wex wdone-card" aria-label="${esc(e.name)} – בוצע"><div class="row between">
+        <div class="wdone-info"><b dir="auto">✓ ${esc(e.name)}</b><div class="small muted">${e.weight != null ? `<span class="num">${gkg(e.weight)}</span> ק״ג` : "בלי משקל"}${(e.note || "").trim() ? ` · <span dir="auto">${esc(e.note.trim())}</span>` : ""}</div></div>
+        <button class="btn primary sm" data-act="w-edit-ex" data-i="${i}">ערוך</button></div></section>`;
       return `<section class="card stack wex">
         <div class="row between"><b dir="auto">${esc(e.name)}</b><span class="tag num">${esc(e.sets)}×${esc(e.reps)}</span></div>
-        <label class="check done-check"><input type="checkbox" data-wdone="${i}" ${e.done ? "checked" : ""}><span>בוצע</span></label>
+        <div class="row between"><label class="check done-check"><input type="checkbox" data-wdone="${i}" ${e.done ? "checked" : ""}><span>בוצע</span></label>${e.done ? `<button class="btn sm" data-act="w-fold-ex" data-i="${i}">סיימתי</button>` : ""}</div>
         ${e.notes ? `<div class="note" dir="auto">${esc(e.notes)}</div>` : ""}
         ${e.lib || ytOk(e.yt) ? `<details><summary class="small">איך עושים את זה</summary><div class="stack" style="margin-top:8px">${e.lib ? demoHTML(e.lib, true) : ""}${ytLink(e.yt)}</div></details>` : ""}
         <div class="row"><label class="field grow">משקל בק״ג (לא חובה)<input data-wkg="${i}" inputmode="decimal" dir="ltr" value="${e.weight != null ? esc(e.weight) : ""}" placeholder="${last ? esc(last.e.weight) : ""}"></label>
-          <div class="last small">${last ? `בפעם הקודמת<br><b class="num">${g1(last.e.weight)} ק״ג</b><br><span class="muted">${esc(niceDate(last.w.date))}</span>` : `<span class="muted">פעם ראשונה</span>`}</div></div>
+          <div class="last small">${last ? `בפעם הקודמת<br><b class="num">${gkg(last.e.weight)} ק״ג</b><br><span class="muted">${esc(niceDate(last.w.date))}</span>` : `<span class="muted">פעם ראשונה</span>`}</div></div>
         <input type="text" dir="auto" maxlength="200" data-wnote="${i}" placeholder="הערה לאימון (לא חובה)" value="${esc(e.note || "")}">
       </section>`; }).join("")}
     <button class="btn primary block" data-act="w-save">שמור אימון</button>
@@ -2639,6 +2646,8 @@ Object.assign(ACT, {
     if (dirty && !(await confirmBox("לבטל את האימון?", w.isNew ? "מה שרשמת באימון הזה יימחק." : "השינויים שעשית לא יישמרו.", "בטל"))) return;
     wdClear(); TR.mode = "home"; TR.w = null; render(); },
   "w-save": () => trSaveWorkout(),
+  "w-edit-ex": el => { readLogFields(); TR.wedit.add(+el.dataset.i); render(); const f = document.querySelector(`[data-wkg="${+el.dataset.i}"]`); if (f) f.closest(".wex").scrollIntoView({block:"nearest"}); },
+  "w-fold-ex": el => { readLogFields(); TR.wedit.delete(+el.dataset.i); wdTouch(); render(); },
   "w-del": async () => { const ok = await confirmBox("למחוק את האימון?", "המשקלים שרשמת בו יימחקו.", "מחק"); if (ok) { const id = TR.w.id; wdClear(); if (!TR.w.isNew) Store.del(id); TR.mode = "home"; TR.w = null; render(); } },
   "wd-resume": () => { const d = wdRead(); if (d) wdOpen(d); else render(); },
   "wd-discard": async () => { const ok = await confirmBox("למחוק את האימון שלא נשמר?", "מה שרשמת בו יימחק.", "מחק"); if (ok) { wdClear(); render(); } },
@@ -2658,7 +2667,7 @@ document.addEventListener("input", e => {
 });
 document.addEventListener("change", e => {
   const t = e.target;
-  if (isLogField(t)) wdTouch();
+  if (isLogField(t)) { wdTouch(); if (t.dataset.wdone != null) { const i = +t.dataset.wdone; TR.wedit.delete(i); if (t.checked) render(); } }
   else if (t.id === "p-current" && TR.draft) TR.draft.status = t.checked ? "current" : "past";
   else if (t.id === "tr-prog") { TR.prog = TR.prog || {}; TR.prog[t.dataset.ctx] = t.value; render(); }
   else if (t.id === "adm-food" || t.id === "adm-train") { const f = $("#adm-food").checked, tr = $("#adm-train").checked; adminSetModules(t.dataset.id, f, tr); }
